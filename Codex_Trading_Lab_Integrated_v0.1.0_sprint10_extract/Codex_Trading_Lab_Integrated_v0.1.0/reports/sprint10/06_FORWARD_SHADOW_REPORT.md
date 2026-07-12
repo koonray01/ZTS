@@ -34,6 +34,8 @@ Summary:
 
 Decision from run artifact: `GO_FOR_TIMED_REAL_FORWARD_SHADOW`.
 
+Acceptance interpretation: this authorizes timed real forward shadow only. It is not `SPRINT10_FULL_PASS`, `PRODUCTION_READY`, `ENTRY_PIPELINE_VALIDATED`, or `TRADING_EDGE_VALIDATED`.
+
 Updated rapid rerun after worker-dedup fix:
 
 - Source: `LIVE_MT5`
@@ -76,3 +78,13 @@ Observed stall:
 - Snapshot 41 manifest write: `2026-07-12T18:53:32Z`
 
 This run is not accepted as a timed forward shadow pass. The CLI now has `--max-snapshot-seconds` and returns non-zero if a snapshot stage exceeds the guard or if requested snapshots are not completed.
+
+## CLI Acceptance Status
+
+`tools/run_forward_shadow.py` now separates the harness decision from CLI acceptance:
+
+- `harness_decision`: the raw harness-level decision.
+- `acceptance_status`: the acceptance gate result used by the CLI exit code.
+- `accepted`: true only when source is `LIVE_MT5`, all requested snapshots complete, at least 20 snapshots are processed, order actions are 0, and no stopped reason exists.
+
+Smoke/probe runs below 20 snapshots return non-zero with `acceptance_status=REAL_MT5_SMOKE_ONLY`.

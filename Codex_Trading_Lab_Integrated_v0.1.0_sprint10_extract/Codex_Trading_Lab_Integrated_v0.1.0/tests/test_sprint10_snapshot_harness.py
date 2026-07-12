@@ -133,3 +133,29 @@ def test_forward_shadow_cli_reports_pending_when_real_mt5_unavailable(root, monk
         assert payload["fallback_used"] is False
     else:
         assert completed.returncode in {0, 2}
+
+
+def test_forward_shadow_acceptance_classification(root):
+    sys.path.insert(0, str(root / "tools"))
+    import run_forward_shadow
+
+    base = {
+        "source": "LIVE_MT5",
+        "completed_requested_snapshots": True,
+        "snapshots_processed": 20,
+        "order_actions": 0,
+        "stopped_reason": None,
+    }
+    assert run_forward_shadow.classify_acceptance(base) == ("ACCEPTED_REAL_FORWARD_SHADOW_MINIMUM", True)
+
+    smoke = dict(base, snapshots_processed=3)
+    assert run_forward_shadow.classify_acceptance(smoke) == ("REAL_MT5_SMOKE_ONLY", False)
+
+    stalled = dict(base, stopped_reason="SNAPSHOT_STAGE_TIMEOUT:RUN:301.0s")
+    assert run_forward_shadow.classify_acceptance(stalled) == ("TIMED_SHADOW_INTERRUPTED_STALL", False)
+
+    fixture = dict(base, source="FIXTURE")
+    assert run_forward_shadow.classify_acceptance(fixture) == ("REAL_MT5_VALIDATION_PENDING", False)
+
+    incomplete = dict(base, completed_requested_snapshots=False)
+    assert run_forward_shadow.classify_acceptance(incomplete) == ("INCOMPLETE_REQUESTED_SNAPSHOTS", False)

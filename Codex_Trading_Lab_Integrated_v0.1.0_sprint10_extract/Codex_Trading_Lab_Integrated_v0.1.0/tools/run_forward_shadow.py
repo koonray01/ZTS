@@ -11,6 +11,20 @@ sys.path.insert(0, str(ROOT / "src"))
 from ctl_mt5_snapshot import MetaTrader5SnapshotAdapter, SnapshotUnavailable, run_integration_harness  # noqa: E402
 
 
+def classify_acceptance(report: dict) -> tuple[str, bool]:
+    if report.get("stopped_reason"):
+        return "TIMED_SHADOW_INTERRUPTED_STALL", False
+    if report.get("source") != "LIVE_MT5":
+        return "REAL_MT5_VALIDATION_PENDING", False
+    if not report.get("completed_requested_snapshots"):
+        return "INCOMPLETE_REQUESTED_SNAPSHOTS", False
+    if report.get("snapshots_processed", 0) < 20:
+        return "REAL_MT5_SMOKE_ONLY", False
+    if report.get("order_actions") != 0:
+        return "SAFETY_VIOLATION_ORDER_ACTIONS", False
+    return "ACCEPTED_REAL_FORWARD_SHADOW_MINIMUM", True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run real MT5 forward shadow validation without broker execution.")
     parser.add_argument("--output", required=True)
@@ -32,9 +46,15 @@ def main() -> int:
         max_snapshot_elapsed_seconds=args.max_snapshot_seconds,
     )
     (output / "forward_shadow_report.json").write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    acceptance_status, accepted = classify_acceptance(report)
     print(json.dumps({
-        "final_decision": report["final_decision"],
+        "harness_decision": report["final_decision"],
+        "acceptance_status": acceptance_status,
+        "accepted": accepted,
         "snapshots_processed": report["snapshots_processed"],
+        "requested_snapshots": report["requested_snapshots"],
+        "completed_requested_snapshots": report["completed_requested_snapshots"],
+        "stopped_reason": report["stopped_reason"],
         "unique_market_state_hashes": report["unique_market_state_hashes"],
         "jobs_created": report["jobs_created"],
         "jobs_suppressed": report["jobs_suppressed"],
@@ -42,13 +62,7 @@ def main() -> int:
         "order_actions": report["order_actions"],
         "trade_write_enabled": False,
     }))
-    return 0 if (
-        report["source"] == "LIVE_MT5"
-        and report["completed_requested_snapshots"]
-        and report["snapshots_processed"] >= 20
-        and report["order_actions"] == 0
-        and report["stopped_reason"] is None
-    ) else 2
+    return 0 if accepted else 2
 
 
 if __name__ == "__main__":
