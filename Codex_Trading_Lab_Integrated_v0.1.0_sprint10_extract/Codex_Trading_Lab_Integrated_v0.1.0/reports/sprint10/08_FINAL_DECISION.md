@@ -8,7 +8,7 @@ Basis:
 - Fixture harness: passed.
 - Real MT5 connectivity/smoke: passed.
 - Rapid real snapshot run: 20 snapshots processed.
-- Timed forward shadow: pending.
+- Timed forward shadow: attempted but interrupted/stalled; still pending.
 - Runtime trade-write scan: clean for `src` and `tools`.
 - Evidence: append-only raw manifests created for all 20 real snapshots.
 - Worker and audit integrity: passed.
@@ -24,7 +24,7 @@ Current precise status:
 - FIXTURE VALIDATION: PASS
 - REAL MT5 CONNECTIVITY/SMOKE: PASS
 - RAPID REAL SNAPSHOT RUN: PASS
-- TIMED FORWARD SHADOW: PENDING
+- TIMED FORWARD SHADOW: PENDING_AFTER_INTERRUPTED_STALL
 - REAL ENTRY CANDIDATE PATH: NOT EXERCISED
 - REAL PART 3 PATH: NOT EXERCISED
 - PRODUCTION READY: NO

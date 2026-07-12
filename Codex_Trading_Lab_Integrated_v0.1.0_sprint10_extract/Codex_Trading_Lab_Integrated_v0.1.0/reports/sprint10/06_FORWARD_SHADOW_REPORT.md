@@ -51,3 +51,28 @@ Updated rapid rerun after worker-dedup fix:
 - Order actions: 0
 
 Important limitation: this was a rapid 20-snapshot capture with interval 0 seconds, not a timed forward shadow session.
+
+## Timed 2-Hour Attempt
+
+Command attempted:
+
+```powershell
+python tools/run_forward_shadow.py --symbol XAUUSD --snapshots 120 --interval-seconds 60 --output outputs/sprint10_real_forward_shadow_2h
+```
+
+Result: `TIMED_SHADOW_INTERRUPTED_STALL`
+
+- Requested snapshots: 120
+- Raw snapshots observed: 41
+- Normalized decisions observed: 41
+- Completed requested snapshots: false
+- Final forward-shadow report: not written because the process did not complete
+- Partial interrupted report: `outputs/sprint10_real_forward_shadow_2h/forward_shadow_partial_interrupted_report.json`
+- Partial evidence bundle: `outputs/sprint10_real_forward_shadow_2h/evidence_bundle_partial_interrupted.zip`
+
+Observed stall:
+
+- Snapshot 40 manifest write: `2026-07-12T15:54:16Z`
+- Snapshot 41 manifest write: `2026-07-12T18:53:32Z`
+
+This run is not accepted as a timed forward shadow pass. The CLI now has `--max-snapshot-seconds` and returns non-zero if a snapshot stage exceeds the guard or if requested snapshots are not completed.

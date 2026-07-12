@@ -172,6 +172,7 @@ def run_integration_harness(
     iterations: int = 3,
     run_id: str = "RUN-SPRINT10-FIXTURE",
     interval_seconds: float = 0,
+    max_snapshot_elapsed_seconds: float = 300,
 ) -> dict[str, Any]:
     output_root = Path(output_root)
     evidence = EvidenceStore(output_root / "evidence")
@@ -205,6 +206,7 @@ def run_integration_harness(
     candidate_count = 0
     worker_reports = []
     current_time = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc) if isinstance(adapter, FixtureSnapshotAdapter) else datetime.now(timezone.utc)
+    stopped_reason = None
 
     for index in range(iterations):
         if isinstance(adapter, FixtureSnapshotAdapter):
@@ -252,7 +254,8 @@ def run_integration_harness(
         opportunity_count += len(decision["scenario_packet"]["scenarios"])
         candidate_count += len(decision["entry_packet"]["candidates"])
         finished = datetime.now(timezone.utc)
-        stage_timings.append({"snapshot_id": snapshot["snapshot_id"], "started_at": iso_z(started), "finished_at": iso_z(finished), "elapsed_ms": int((finished - started).total_seconds() * 1000)})
+        elapsed_seconds = (finished - started).total_seconds()
+        stage_timings.append({"snapshot_id": snapshot["snapshot_id"], "started_at": iso_z(started), "finished_at": iso_z(finished), "elapsed_ms": int(elapsed_seconds * 1000)})
         snapshots.append({
             "snapshot_id": snapshot["snapshot_id"],
             "raw_status": raw["status"],
@@ -261,6 +264,9 @@ def run_integration_harness(
             "accepted_significant_events": len(watcher["accepted_significant_events"]),
             "runtime_jobs": len(runtime_report["jobs_created"]),
         })
+        if elapsed_seconds > max_snapshot_elapsed_seconds:
+            stopped_reason = f"SNAPSHOT_STAGE_TIMEOUT:{snapshot['snapshot_id']}:{elapsed_seconds:.3f}s"
+            break
         if interval_seconds and index < iterations - 1:
             time.sleep(interval_seconds)
 
@@ -292,11 +298,18 @@ def run_integration_harness(
         "worker_invocations_per_unique_state": 0.0 if not market_hashes else round(len(worker_reports) / len(set(market_hashes)), 6),
         "candidate_suppression_breakdown": candidate_suppression,
         "stage_timings": stage_timings,
+        "requested_snapshots": iterations,
+        "completed_requested_snapshots": len(snapshots) == iterations,
+        "stopped_reason": stopped_reason,
         "paused_position_monitoring_active": paused_state["position_monitoring_active"],
         "auto_execution_enabled": False,
         "trade_write_enabled": False,
         "part3_requests": 0,
         "order_actions": 0,
         "integrity": {"worker_job_store": job_ok, "worker_result_store": result_ok, "worker_audit": audit_ok, "errors": job_errors + result_errors + audit_errors},
-        "final_decision": "GO_FOR_REAL_FORWARD_SHADOW" if adapter.source == "LIVE_MT5" else "CONDITIONAL_GO_PENDING_REAL_MT5",
+        "final_decision": (
+            "TIMED_SHADOW_INTERRUPTED_STALL" if stopped_reason
+            else "GO_FOR_REAL_FORWARD_SHADOW" if adapter.source == "LIVE_MT5"
+            else "CONDITIONAL_GO_PENDING_REAL_MT5"
+        ),
     }
