@@ -5,6 +5,8 @@
 | Old absolute `/mnt/data` strings in historical report/example outputs | Open | Non-runtime hygiene gap; not changed in this sprint to avoid unrelated artifact churn |
 | Real MT5 session duration | Open | 20 real snapshots were captured rapidly with interval 0; longer timed shadow remains recommended |
 | Candidate count in real shadow | Open | Real run produced 60 scenarios and 0 entry candidates; no Part 3 requests occurred |
+| Candidate suppression visibility | Improved | Rapid rerun reports `SCENARIO_NOT_READY=40`, `SHOCK_BLOCK=20`; timed run must continue tracking this |
+| Worker churn on identical state | Fixed in harness | Worker is now invoked only for runtime watcher jobs; rapid rerun had 1 semantic state, 0 jobs, 0 worker invocations |
 | Custom indicator/repaint audit | Open | Not implemented in Sprint 10 adapter; snapshot service captures native closed OHLC bars |
 | Broker terminal variability | Open | Adapter fails closed on unavailable package, terminal, symbol, tick, or bar data |
 | Evidence collision on rerun into same output path | Expected | Append-only store quarantines changed duplicate content |

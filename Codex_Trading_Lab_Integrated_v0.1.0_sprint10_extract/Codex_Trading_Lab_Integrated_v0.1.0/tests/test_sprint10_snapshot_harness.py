@@ -95,7 +95,22 @@ def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
     report = run_integration_harness(output_root=tmp_path, iterations=3)
     assert report["final_decision"] == "CONDITIONAL_GO_PENDING_REAL_MT5"
     assert report["snapshots_processed"] == 3
-    assert report["worker_result_count"] >= 1
+    assert report["unique_market_state_hashes"] >= 1
+    assert report["worker_result_count"] == report["jobs_created"]
+    assert report["worker_invocations"] == report["worker_result_count"]
+    assert report["worker_invocations_per_unique_state"] <= report["snapshots_processed"]
+    assert set(report["candidate_suppression_breakdown"]) == {
+        "NO_VALID_LOCATION",
+        "NO_ACTIVE_ZONE",
+        "TRIGGER_PENDING",
+        "RR_BELOW_MINIMUM",
+        "SHOCK_BLOCK",
+        "CONFLICT_BLOCK",
+        "STALE_OR_QC_BLOCK",
+        "SCENARIO_NOT_READY",
+        "LIMIT_NOT_ELIGIBLE",
+        "UNKNOWN_REQUIRED_INPUT",
+    }
     assert report["opportunity_count"] >= 3
     assert report["candidate_count"] >= 0
     assert report["paused_position_monitoring_active"] is True

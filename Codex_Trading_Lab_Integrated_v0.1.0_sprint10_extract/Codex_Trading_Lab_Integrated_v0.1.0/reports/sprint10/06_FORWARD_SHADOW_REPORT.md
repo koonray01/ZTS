@@ -32,6 +32,22 @@ Summary:
 - Worker result store integrity: true
 - Worker audit integrity: true
 
-Decision from run artifact: `GO_FOR_REAL_FORWARD_SHADOW`.
+Decision from run artifact: `GO_FOR_TIMED_REAL_FORWARD_SHADOW`.
 
-Important limitation: this was a rapid 20-snapshot capture with interval 0 seconds, not a long market-duration session.
+Updated rapid rerun after worker-dedup fix:
+
+- Source: `LIVE_MT5`
+- Snapshots processed: 20
+- Unique semantic market-state hashes: 1
+- Significant events: 0
+- Jobs created: 0
+- Jobs suppressed: 0
+- Worker invocations: 0
+- Duplicate event ratio: 0.0
+- Worker invocations per unique state: 0.0
+- Candidate count: 0
+- Candidate suppression: `SCENARIO_NOT_READY=40`, `SHOCK_BLOCK=20`, all other tracked reasons 0
+- Part 3 requests: 0
+- Order actions: 0
+
+Important limitation: this was a rapid 20-snapshot capture with interval 0 seconds, not a timed forward shadow session.

@@ -9,6 +9,7 @@
 | 2026-07-12T14:56:39Z | `python tools/run_all_validation.py --output outputs/sprint10_integrated_validation_final` | 0 | 9 integrated checks passed |
 | 2026-07-12T14:56:39Z | `python tools/validate_contracts.py` | 0 | 25 schemas passed |
 | 2026-07-12T14:53:53Z | `python tools/run_forward_shadow.py --output outputs/sprint10_real_forward_shadow_20 --snapshots 20` | 0 | Real MT5 rapid forward shadow passed |
+| 2026-07-12T15:11:24Z | `python tools/run_forward_shadow.py --output outputs/sprint10_real_forward_shadow_20_dedup2 --snapshots 20 --interval-seconds 0` | 0 | Real MT5 rapid rerun after dedup fix: 20 snapshots, 1 semantic state, 0 jobs, 0 worker invocations |
 | 2026-07-12T14:54:xxZ | `rg ... src tools` | 0 | No runtime trade-write/shell forbidden token matches |
 | 2026-07-12T14:54:xxZ | `python tools/bundle_sprint10_evidence.py --evidence-root outputs/sprint10_real_forward_shadow_20/evidence --output outputs/sprint10_real_forward_shadow_20/evidence_bundle.zip` | 0 | Evidence bundle created |
 

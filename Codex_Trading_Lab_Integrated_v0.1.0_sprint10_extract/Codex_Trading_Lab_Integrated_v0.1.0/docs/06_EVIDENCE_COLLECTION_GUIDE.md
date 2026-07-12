@@ -20,6 +20,12 @@ Bundle evidence:
 python tools/bundle_sprint10_evidence.py --evidence-root outputs/sprint10_real_forward_shadow_20/evidence --output outputs/sprint10_real_forward_shadow_20/evidence_bundle.zip
 ```
 
+Timed 2-hour evidence bundle:
+
+```powershell
+python tools/bundle_sprint10_evidence.py --evidence-root outputs/sprint10_real_forward_shadow_2h/evidence --output outputs/sprint10_real_forward_shadow_2h/evidence_bundle.zip
+```
+
 Rules:
 
 - Raw snapshots are append-only.

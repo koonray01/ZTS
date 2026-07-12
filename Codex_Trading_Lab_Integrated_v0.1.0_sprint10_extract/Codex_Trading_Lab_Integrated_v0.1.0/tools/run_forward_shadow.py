@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,11 +21,25 @@ def main() -> int:
     adapter = MetaTrader5SnapshotAdapter()
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
-    report = run_integration_harness(output_root=output, symbol=args.symbol, adapter=adapter, iterations=args.snapshots, run_id="RUN-SPRINT10-REAL-MT5")
-    if args.interval_seconds:
-        time.sleep(args.interval_seconds)
+    report = run_integration_harness(
+        output_root=output,
+        symbol=args.symbol,
+        adapter=adapter,
+        iterations=args.snapshots,
+        run_id="RUN-SPRINT10-REAL-MT5",
+        interval_seconds=args.interval_seconds,
+    )
     (output / "forward_shadow_report.json").write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    print(json.dumps({"final_decision": report["final_decision"], "snapshots_processed": report["snapshots_processed"], "order_actions": report["order_actions"], "trade_write_enabled": False}))
+    print(json.dumps({
+        "final_decision": report["final_decision"],
+        "snapshots_processed": report["snapshots_processed"],
+        "unique_market_state_hashes": report["unique_market_state_hashes"],
+        "jobs_created": report["jobs_created"],
+        "jobs_suppressed": report["jobs_suppressed"],
+        "worker_invocations": report["worker_invocations"],
+        "order_actions": report["order_actions"],
+        "trade_write_enabled": False,
+    }))
     return 0 if report["source"] == "LIVE_MT5" and report["snapshots_processed"] >= 20 and report["order_actions"] == 0 else 2
 
 
