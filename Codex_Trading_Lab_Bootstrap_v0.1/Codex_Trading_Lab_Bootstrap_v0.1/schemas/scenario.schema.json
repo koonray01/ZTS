@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PLACEHOLDER — finalize in Sprint 0",
+  "type": "object",
+  "additionalProperties": false
+}

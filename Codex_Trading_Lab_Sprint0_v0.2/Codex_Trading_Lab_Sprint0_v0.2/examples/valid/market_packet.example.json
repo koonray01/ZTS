@@ -1,0 +1,74 @@
+{
+  "schema_version": "0.2.0",
+  "market_packet_id": "MPKT-XAUUSD-001",
+  "run_id": "RUN-XAUUSD-001",
+  "snapshot_id": "SNAP-XAUUSD-001",
+  "symbol": "XAUUSD",
+  "profile": "STANDARD",
+  "generated_at": "2026-07-12T08:00:02Z",
+  "market_state": [
+    {
+      "timeframe": "H1",
+      "structure": "BULLISH",
+      "phase": "PULLBACK",
+      "volatility": "NORMAL",
+      "evidence_refs": [
+        "CLAIM-DERIVED-001"
+      ]
+    }
+  ],
+  "location": {
+    "status": "PARTIAL",
+    "labels": [
+      "NEAR_DEMAND_CANDIDATE"
+    ],
+    "evidence_refs": [
+      "EVID-SNAPSHOT-001"
+    ]
+  },
+  "active_zones": [],
+  "liquidity": {
+    "nearest_above": 2405.0,
+    "nearest_below": 2397.0,
+    "pools": [],
+    "evidence_refs": [
+      "EVID-SNAPSHOT-001"
+    ]
+  },
+  "confirmed_events": [],
+  "missing_events": [
+    "M5_RECLAIM"
+  ],
+  "opportunities": [
+    {
+      "opportunity_id": "OPP-SR1-001",
+      "setup_family": "SR1",
+      "status": "WATCH",
+      "direction": "BUY",
+      "evidence_refs": [
+        "EVID-SNAPSHOT-001"
+      ]
+    }
+  ],
+  "risk_flags": [],
+  "conflicts": [],
+  "unknowns": [
+    {
+      "code": "TRUE_CVD_UNAVAILABLE",
+      "message": "True futures CVD is unavailable.",
+      "blocking": false
+    }
+  ],
+  "permission_state": "NOT_EVALUATED",
+  "evidence_refs": [
+    "EVID-SNAPSHOT-001"
+  ],
+  "component_versions": {
+    "fusion": "0.1.0"
+  },
+  "compactness": {
+    "profile": "STANDARD",
+    "raw_bars_embedded": false,
+    "estimated_tokens": 320
+  }
+}

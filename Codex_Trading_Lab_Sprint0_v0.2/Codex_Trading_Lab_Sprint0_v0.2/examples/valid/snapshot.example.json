@@ -1,0 +1,118 @@
+{
+  "schema_version": "0.2.0",
+  "snapshot_id": "SNAP-XAUUSD-001",
+  "run_id": "RUN-XAUUSD-001",
+  "request_id": "REQ-XAUUSD-001",
+  "source": "FIXTURE",
+  "symbol": "XAUUSD",
+  "terminal": {
+    "terminal_id": "FIXTURE-TERMINAL",
+    "account_id": null,
+    "server": null,
+    "connected": false,
+    "trade_write_enabled": false,
+    "terminal_build": null
+  },
+  "capture_time": "2026-07-12T08:00:00Z",
+  "broker_time": "2026-07-12T11:00:00+03:00",
+  "broker_utc_offset_minutes": 180,
+  "last_tick_time": null,
+  "freshness": {
+    "status": "FRESH",
+    "age_ms": 1000,
+    "stale_after_ms": 300000,
+    "reasons": []
+  },
+  "timeframes": [
+    {
+      "timeframe": "M5",
+      "requested_bars": 1,
+      "returned_bars": 1,
+      "last_closed_bar_time": "2026-07-12T07:55:00Z",
+      "bars": [
+        {
+          "bar_id": "BAR-M5-001",
+          "open_time": "2026-07-12T07:50:00Z",
+          "close_time": "2026-07-12T07:55:00Z",
+          "open": 2400.0,
+          "high": 2402.0,
+          "low": 2399.0,
+          "close": 2401.0,
+          "tick_volume": 120,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        }
+      ]
+    },
+    {
+      "timeframe": "M15",
+      "requested_bars": 1,
+      "returned_bars": 1,
+      "last_closed_bar_time": "2026-07-12T07:45:00Z",
+      "bars": [
+        {
+          "bar_id": "BAR-M15-001",
+          "open_time": "2026-07-12T07:30:00Z",
+          "close_time": "2026-07-12T07:45:00Z",
+          "open": 2398.0,
+          "high": 2403.0,
+          "low": 2397.0,
+          "close": 2400.0,
+          "tick_volume": 300,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        }
+      ]
+    },
+    {
+      "timeframe": "H1",
+      "requested_bars": 1,
+      "returned_bars": 1,
+      "last_closed_bar_time": "2026-07-12T07:00:00Z",
+      "bars": [
+        {
+          "bar_id": "BAR-H1-001",
+          "open_time": "2026-07-12T06:00:00Z",
+          "close_time": "2026-07-12T07:00:00Z",
+          "open": 2390.0,
+          "high": 2405.0,
+          "low": 2388.0,
+          "close": 2400.0,
+          "tick_volume": 1500,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        }
+      ]
+    }
+  ],
+  "account_context": {
+    "status": "UNAVAILABLE",
+    "currency": null,
+    "balance": null,
+    "equity": null,
+    "margin_free": null,
+    "positions": []
+  },
+  "indicator_evidence": [],
+  "evidence_refs": [
+    "EVID-SNAPSHOT-001"
+  ],
+  "qc": {
+    "decision": "PASS",
+    "checks": [
+      {
+        "check_id": "QC-CLOSED-BARS",
+        "status": "PASS",
+        "message": "All analytical bars are closed."
+      }
+    ],
+    "warnings": [],
+    "errors": []
+  },
+  "component_versions": {
+    "snapshot_service": "0.2.0-fixture"
+  }
+}

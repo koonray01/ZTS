@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/scenario.schema.json",
+  "title": "Codex Trading Lab Scenario Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_packet_id",
+    "run_id",
+    "snapshot_id",
+    "market_packet_id",
+    "symbol",
+    "generated_at",
+    "ranking_method",
+    "probability_status",
+    "scenarios",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "scenario_packet_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "market_packet_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ranking_method": {
+      "const": "QUALITATIVE_RULE_BASED"
+    },
+    "probability_status": {
+      "const": "UNAVAILABLE_UNTIL_CALIBRATED"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "rank",
+          "label",
+          "direction",
+          "status",
+          "current_state",
+          "path",
+          "required_events",
+          "missing_events",
+          "invalidations",
+          "expiry",
+          "what_to_wait_for",
+          "prohibited_actions",
+          "candidate_entry_types",
+          "evidence_refs"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "rank": {
+            "enum": [
+              "PRIMARY",
+              "SECONDARY",
+              "LOWER_PRIORITY",
+              "TAIL_RISK"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "enum": [
+              "BULLISH",
+              "BEARISH",
+              "RANGE",
+              "NEUTRAL",
+              "UNRESOLVED"
+            ]
+          },
+          "status": {
+            "enum": [
+              "PROPOSED",
+              "WATCHING",
+              "ARMED",
+              "CONFIRMING",
+              "READY_FOR_ENTRY_EVALUATION",
+              "DEGRADED",
+              "INVALIDATED",
+              "EXPIRED",
+              "COMPLETED"
+            ]
+          },
+          "current_state": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step",
+                "event",
+                "state"
+              ],
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6
+                },
+                "event": {
+                  "type": "string"
+                },
+                "state": {
+                  "enum": [
+                    "PENDING",
+                    "CONFIRMED",
+                    "FAILED",
+                    "SKIPPED_NOT_ALLOWED"
+                  ]
+                },
+                "evidence_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          },
+          "required_events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "missing_events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "invalidations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rule_id",
+                "condition",
+                "action"
+              ],
+              "properties": {
+                "rule_id": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "action": {
+                  "enum": [
+                    "INVALIDATE",
+                    "DEGRADE",
+                    "EXPIRE"
+                  ]
+                }
+              }
+            }
+          },
+          "expiry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "TIME",
+                  "BARS",
+                  "EVENT",
+                  "SESSION_END",
+                  "NONE"
+                ]
+              },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "bars_remaining": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "event": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "what_to_wait_for": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "prohibited_actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "candidate_entry_types": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "STRUCTURED_LIMIT",
+                "EARLY_CONFIRMATION",
+                "FULL_CONFIRMATION",
+                "CONTINUATION"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+      },
+      "uniqueItems": true
+    }
+  }
+}

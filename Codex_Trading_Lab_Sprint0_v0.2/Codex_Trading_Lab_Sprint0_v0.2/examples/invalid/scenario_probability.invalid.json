@@ -1,0 +1,136 @@
+{
+  "schema_version": "0.2.0",
+  "scenario_packet_id": "SCNP-XAUUSD-001",
+  "run_id": "RUN-XAUUSD-001",
+  "snapshot_id": "SNAP-XAUUSD-001",
+  "market_packet_id": "MPKT-XAUUSD-001",
+  "symbol": "XAUUSD",
+  "generated_at": "2026-07-12T08:00:03Z",
+  "ranking_method": "QUALITATIVE_RULE_BASED",
+  "probability_status": "UNAVAILABLE_UNTIL_CALIBRATED",
+  "scenarios": [
+    {
+      "scenario_id": "SCN-PRIMARY-001",
+      "rank": "PRIMARY",
+      "label": "Demand holds then bullish confirmation",
+      "direction": "BULLISH",
+      "status": "WATCHING",
+      "current_state": "DEMAND_APPROACH",
+      "path": [
+        {
+          "step": 1,
+          "event": "SWEEP_LOW",
+          "state": "PENDING",
+          "evidence_refs": []
+        },
+        {
+          "step": 2,
+          "event": "RECLAIM",
+          "state": "PENDING",
+          "evidence_refs": []
+        },
+        {
+          "step": 3,
+          "event": "RETEST_HOLD",
+          "state": "PENDING",
+          "evidence_refs": []
+        }
+      ],
+      "required_events": [
+        "SWEEP_LOW",
+        "RECLAIM"
+      ],
+      "missing_events": [
+        "SWEEP_LOW",
+        "RECLAIM"
+      ],
+      "invalidations": [
+        {
+          "rule_id": "INV-001",
+          "condition": "Closed bar below demand invalidation",
+          "action": "INVALIDATE"
+        }
+      ],
+      "expiry": {
+        "mode": "BARS",
+        "expires_at": null,
+        "bars_remaining": 12,
+        "event": null
+      },
+      "what_to_wait_for": [
+        "M5 sweep and closed-bar reclaim"
+      ],
+      "prohibited_actions": [
+        "Blind chase above entry window"
+      ],
+      "candidate_entry_types": [
+        "STRUCTURED_LIMIT",
+        "EARLY_CONFIRMATION",
+        "FULL_CONFIRMATION"
+      ],
+      "evidence_refs": [
+        "EVID-SNAPSHOT-001"
+      ],
+      "probability": 0.72
+    },
+    {
+      "scenario_id": "SCN-FAILURE-001",
+      "rank": "SECONDARY",
+      "label": "Demand fails and retest rejects",
+      "direction": "BEARISH",
+      "status": "PROPOSED",
+      "current_state": "DEMAND_APPROACH",
+      "path": [
+        {
+          "step": 1,
+          "event": "BREAK_BELOW_DEMAND",
+          "state": "PENDING",
+          "evidence_refs": []
+        },
+        {
+          "step": 2,
+          "event": "RETEST_FAIL",
+          "state": "PENDING",
+          "evidence_refs": []
+        }
+      ],
+      "required_events": [
+        "BREAK_BELOW_DEMAND",
+        "RETEST_FAIL"
+      ],
+      "missing_events": [
+        "BREAK_BELOW_DEMAND",
+        "RETEST_FAIL"
+      ],
+      "invalidations": [
+        {
+          "rule_id": "INV-002",
+          "condition": "Price reclaims demand with closed bar",
+          "action": "INVALIDATE"
+        }
+      ],
+      "expiry": {
+        "mode": "BARS",
+        "expires_at": null,
+        "bars_remaining": 12,
+        "event": null
+      },
+      "what_to_wait_for": [
+        "Closed break below demand"
+      ],
+      "prohibited_actions": [
+        "Sell before break confirmation"
+      ],
+      "candidate_entry_types": [
+        "FULL_CONFIRMATION",
+        "CONTINUATION"
+      ],
+      "evidence_refs": [
+        "EVID-SNAPSHOT-001"
+      ]
+    }
+  ],
+  "evidence_refs": [
+    "EVID-SNAPSHOT-001"
+  ]
+}
