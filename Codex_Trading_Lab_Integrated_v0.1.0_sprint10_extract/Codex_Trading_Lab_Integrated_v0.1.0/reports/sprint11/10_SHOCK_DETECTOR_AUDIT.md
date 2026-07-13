@@ -1,6 +1,6 @@
 # Sprint 11 Shock Detector Audit
 
-Status: `SHOCK_INPUT_MAPPING_ERROR_RESOLVED_BY_CANARY_PENDING_TIMED_SESSION`
+Status: `SHOCK_BEHAVIOR_CONFIRMED_REAL`
 
 Source analyzed:
 
@@ -91,6 +91,29 @@ The original 120-run remains classified as `SHOCK_INPUT_MAPPING_ERROR`, but the 
 
 ## Decision
 
-`SHOCK_AUDIT_INCONCLUSIVE`
+`SHOCK_BEHAVIOR_CONFIRMED_REAL`
 
-Reason: the fix is validated by a 10-snapshot canary only. A new 120-snapshot session is required before marking shock behavior resolved for timed shadow.
+Reason: session 2 completed 120 real MT5 snapshots after the timestamp/freshness fix.
+
+Session 2:
+
+```text
+outputs/sprint11_session_2_20260713_104017
+```
+
+Metrics:
+
+- snapshots: 120
+- shock active snapshots: 5
+- shock started count: 1
+- shock cleared count: 1
+- longest shock duration: 5 snapshots
+- sensor block reasons: none
+- shock input values available for all tracked timeframes: yes
+- shock timeframe: M5 only
+- M5 states: `NORMAL=106`, `HIGH=9`, `SHOCK=5`
+- M15 states: `NORMAL=105`, `HIGH=15`
+- H1 state: `NORMAL=120`
+- H4 states: `HIGH=79`, `NORMAL=41`
+
+This confirms the detector recalculates from current snapshot inputs, does not stay sticky across the session, and can clear.

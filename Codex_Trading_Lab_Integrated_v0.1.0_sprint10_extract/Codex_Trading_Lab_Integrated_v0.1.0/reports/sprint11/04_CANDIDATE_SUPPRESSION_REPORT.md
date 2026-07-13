@@ -75,3 +75,31 @@ After timestamp normalization and session-gap handling:
 - primary_suppression_reason: `TRIGGER_PENDING=10`
 
 This is real-market-origin Candidate creation, but not a complete Real Candidate -> Part 3 path.
+
+## Session 2 Timed Shadow
+
+Output: `outputs/sprint11_session_2_20260713_104017`
+
+Funnel:
+
+```text
+snapshots:         120
+valid_locations:   120
+active_zones:     4009
+opportunities:     390
+scenarios:         600
+ready_scenarios:     0
+entry_candidates: 1080
+watcher_events:     26
+part3_requests:      0
+```
+
+Suppression:
+
+- primary `SCENARIO_NOT_READY`: 115
+- primary `SHOCK_BLOCK`: 5
+- secondary `TRIGGER_PENDING`: 120
+- secondary `CONFLICT_BLOCK`: 95
+- secondary `SCENARIO_NOT_READY`: 5
+
+Candidate creation is validated with real MT5 origin. Full Part 3 path remains pending.

@@ -21,6 +21,15 @@ Freshness-fix canary `outputs/sprint11_freshness_fix_canary_20260713_102820` pro
 - Part 3 requests: 0
 - order actions: 0
 
+Session 2 `outputs/sprint11_session_2_20260713_104017` produced:
+
+- real-market-origin candidates: 1080
+- watcher events: 26
+- worker jobs: 16
+- worker invocations: 16
+- Part 3 requests: 0
+- order actions: 0
+
 Required real or real-snapshot replay paths remain pending:
 
 - stale snapshot -> WAIT
