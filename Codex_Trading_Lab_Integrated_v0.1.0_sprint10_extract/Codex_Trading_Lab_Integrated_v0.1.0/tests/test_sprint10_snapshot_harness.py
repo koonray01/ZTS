@@ -164,6 +164,9 @@ def test_forward_shadow_acceptance_classification(root):
     canary = dict(base, requested_snapshots=10, snapshots_processed=10)
     assert run_forward_shadow.classify_acceptance(canary) == ("TIMED_CANARY_PASS", True)
 
+    timed = dict(base, requested_snapshots=120, snapshots_processed=120)
+    assert run_forward_shadow.classify_acceptance(timed) == ("TIMED_FORWARD_SHADOW_PASS", True)
+
     stalled = dict(base, stopped_reason="SNAPSHOT_STAGE_TIMEOUT:RUN:301.0s")
     assert run_forward_shadow.classify_acceptance(stalled) == ("TIMED_SHADOW_INTERRUPTED_STALL", False)
 
