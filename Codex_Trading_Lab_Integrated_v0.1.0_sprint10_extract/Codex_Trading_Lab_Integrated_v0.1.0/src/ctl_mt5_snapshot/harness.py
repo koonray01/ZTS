@@ -17,7 +17,7 @@ from ctl_decision_core.scenario_engine import build_scenario_packet
 from ctl_eyes import run_basic_eyes
 from ctl_live_runtime import LiveRuntime
 
-from .adapter import FixtureSnapshotAdapter, SnapshotAdapter
+from .adapter import FixtureSnapshotAdapter, SnapshotAdapter, SnapshotUnavailable
 from .diagnostics import IterationDiagnostics, StageTimeout, run_with_timeout
 from .evidence import EvidenceStore
 from .utils import iso_z, sanitize_id, sha256_json
@@ -216,6 +216,43 @@ def _primary_secondary_reasons(counts: dict[str, int]) -> tuple[str, list[str]]:
     return primary, [reason for reason in active if reason != primary]
 
 
+def _candidate_lifecycle_key(candidate: dict[str, Any]) -> str:
+    """Tracks semantic continuity without changing the snapshot-bound candidate contract."""
+    entry_range = candidate["entry_range"]
+    stable = {
+        "entry_type": candidate["entry_type"],
+        "side": candidate["side"],
+        "entry_range": [round(float(entry_range["lower"]), 5), round(float(entry_range["upper"]), 5)],
+        "stop": round(float(candidate["stop"]["price"]), 5),
+        "trigger_mode": candidate["trigger"]["mode"],
+    }
+    return sanitize_id(f"CAND_LIFECYCLE_{sha256_json(stable)[:20]}")
+
+
+def _part3_account(snapshot: dict[str, Any]) -> dict[str, Any]:
+    context = snapshot["account_context"]
+    return {
+        "account_context_id": sanitize_id(f"ACCOUNT_{snapshot['terminal'].get('account_id') or 'UNAVAILABLE'}"),
+        "status": context["status"],
+        "symbol": snapshot["symbol"],
+        "planned_risk_percent": 0.0,
+        "daily_loss_percent": 0.0,
+        "open_positions": len(context.get("positions", [])),
+        "new_entries_blocked": False,
+    }
+
+
+def _part3_dependencies() -> dict[str, str]:
+    return {
+        "snapshot_schema": "0.2.0",
+        "market_packet_schema": "0.2.0",
+        "scenario_schema": "0.2.0",
+        "entry_schema": "0.2.0",
+        "decision_core": "0.1.0",
+        "part3_policy": "PART3_POLICY_0.1.0",
+    }
+
+
 def _decision_core_with_stage_timings(snapshot: dict[str, Any], diagnostics: IterationDiagnostics, *, profile: str = "STANDARD") -> dict[str, Any]:
     with diagnostics.stage("BASIC_EYES", "basic_eyes_seconds"):
         basic = run_basic_eyes(snapshot)
@@ -251,6 +288,8 @@ def run_integration_harness(
     run_id: str = "RUN-SPRINT10-FIXTURE",
     interval_seconds: float = 0,
     max_snapshot_elapsed_seconds: float = 300,
+    restart_after_snapshot: int | None = None,
+    max_reconnect_attempts: int = 0,
 ) -> dict[str, Any]:
     output_root = Path(output_root)
     evidence = EvidenceStore(output_root / "evidence")
@@ -311,12 +350,28 @@ def run_integration_harness(
     candidates_created_by_entry_type: dict[str, int] = {}
     candidates_rejected_by_gate: dict[str, int] = {}
     candidate_expiry_count = 0
+    lifecycle_candidates: dict[str, dict[str, Any]] = {}
+    unique_candidate_ids: set[str] = set()
+    new_candidates_created = 0
+    candidates_carried_forward = 0
+    candidate_status_changes = 0
+    candidates_invalidated = 0
+    duplicate_semantic_candidates = 0
+    part3_eligible_candidates = 0
+    part3_requested_lifecycle_keys: set[str] = set()
+    part3_decisions: dict[str, int] = {}
+    part3_blocked_by_gate: dict[str, int] = {}
+    part3_not_requested_reason: dict[str, int] = {}
     worker_reports = []
     current_time = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc) if isinstance(adapter, FixtureSnapshotAdapter) else datetime.now(timezone.utc)
     stopped_reason = None
     stage_timeouts = 0
     timeout_categories: dict[str, int] = {}
     manual_termination = False
+    restart_attempts = 0
+    restart_recoveries = 0
+    reconnect_attempts = 0
+    reconnect_successes = 0
 
     for index in range(iterations):
         if isinstance(adapter, FixtureSnapshotAdapter):
@@ -329,12 +384,21 @@ def run_integration_harness(
         diagnostics = IterationDiagnostics(output_root=output_root, iteration_index=index + 1, run_id=iteration_run_id)
         try:
             with diagnostics.stage("SNAPSHOT_CAPTURE", "snapshot_capture_seconds"):
-                snapshot = run_with_timeout(
-                    lambda: adapter.capture(symbol=symbol, run_id=iteration_run_id, bars=30, include_h4=True),
-                    timeout_seconds=max_snapshot_elapsed_seconds,
-                    stage="SNAPSHOT_CAPTURE",
-                    category="DATA_COPY_TIMEOUT",
-                )
+                for reconnect_attempt in range(max_reconnect_attempts + 1):
+                    try:
+                        snapshot = run_with_timeout(
+                            lambda: adapter.capture(symbol=symbol, run_id=iteration_run_id, bars=30, include_h4=True),
+                            timeout_seconds=max_snapshot_elapsed_seconds,
+                            stage="SNAPSHOT_CAPTURE",
+                            category="DATA_COPY_TIMEOUT",
+                        )
+                        if reconnect_attempt:
+                            reconnect_successes += 1
+                        break
+                    except SnapshotUnavailable:
+                        if reconnect_attempt >= max_reconnect_attempts:
+                            raise
+                        reconnect_attempts += 1
             diagnostics.attach_snapshot(snapshot)
             with diagnostics.stage("SNAPSHOT_QC", "snapshot_qc_seconds"):
                 if snapshot.get("qc", {}).get("decision") != "PASS":
@@ -411,15 +475,55 @@ def run_integration_harness(
             snapshots_with_candidate += 1
         else:
             snapshots_without_candidate += 1
+            part3_not_requested_reason["NO_CANDIDATE_CREATED"] = part3_not_requested_reason.get("NO_CANDIDATE_CREATED", 0) + 1
             if any(count > 0 for count in iteration_suppression.values()):
                 suppression_explained_snapshots += 1
         for candidate in candidate_items:
+            lifecycle_key = _candidate_lifecycle_key(candidate)
+            unique_candidate_ids.add(lifecycle_key)
+            previous_candidate = lifecycle_candidates.get(lifecycle_key)
+            if previous_candidate is None:
+                new_candidates_created += 1
+                lifecycle_candidates[lifecycle_key] = {"status": candidate["status"], "first_snapshot_id": snapshot["snapshot_id"]}
+            else:
+                candidates_carried_forward += 1
+                if previous_candidate["status"] != candidate["status"]:
+                    candidate_status_changes += 1
+                    previous_candidate["status"] = candidate["status"]
+            if sum(1 for item in candidate_items if _candidate_lifecycle_key(item) == lifecycle_key) > 1:
+                duplicate_semantic_candidates += 1
             entry_type = candidate.get("entry_type", "UNKNOWN")
             candidates_created_by_entry_type[entry_type] = candidates_created_by_entry_type.get(entry_type, 0) + 1
             if candidate.get("status") == "REJECTED":
                 candidates_rejected_by_gate[candidate.get("limit_eligibility", "UNKNOWN")] = candidates_rejected_by_gate.get(candidate.get("limit_eligibility", "UNKNOWN"), 0) + 1
             if candidate.get("status") == "EXPIRED":
                 candidate_expiry_count += 1
+            if candidate.get("status") == "INVALIDATED":
+                candidates_invalidated += 1
+            if candidate.get("status") != "READY_FOR_PERMISSION_REVIEW":
+                reason = f"CANDIDATE_STATUS_{candidate.get('status', 'UNKNOWN')}"
+                part3_not_requested_reason[reason] = part3_not_requested_reason.get(reason, 0) + 1
+                part3_blocked_by_gate["G_LIFECYCLE"] = part3_blocked_by_gate.get("G_LIFECYCLE", 0) + 1
+                continue
+            part3_eligible_candidates += 1
+            if lifecycle_key in part3_requested_lifecycle_keys:
+                part3_not_requested_reason["DUPLICATE_READY_LIFECYCLE"] = part3_not_requested_reason.get("DUPLICATE_READY_LIFECYCLE", 0) + 1
+                continue
+            part3_requested_lifecycle_keys.add(lifecycle_key)
+            with diagnostics.stage("PART3", "part3_seconds"):
+                part3 = runtime.run_part3_if_allowed(
+                    snapshot=snapshot,
+                    decision_state=runtime_report["decision_state"],
+                    candidate_id=candidate["candidate_id"],
+                    account=_part3_account(snapshot),
+                    dependency_state=_part3_dependencies(),
+                    now=runtime_now,
+                )
+            part3_decisions[part3["decision"]] = part3_decisions.get(part3["decision"], 0) + 1
+            for gate in part3.get("gates", []):
+                if gate.get("blocking") and gate.get("status") != "PASS":
+                    gate_id = gate["gate_id"]
+                    part3_blocked_by_gate[gate_id] = part3_blocked_by_gate.get(gate_id, 0) + 1
         finished = datetime.now(timezone.utc)
         elapsed_seconds = (finished - started).total_seconds()
         stage_timings.append({"snapshot_id": snapshot["snapshot_id"], "started_at": iso_z(started), "finished_at": iso_z(finished), "elapsed_ms": int(elapsed_seconds * 1000)})
@@ -432,6 +536,13 @@ def run_integration_harness(
             "accepted_significant_events": len(watcher["accepted_significant_events"]),
             "runtime_jobs": len(runtime_report["jobs_created"]),
         })
+        if restart_after_snapshot is not None and index + 1 == restart_after_snapshot and index + 1 < iterations:
+            restart_attempts += 1
+            prior_snapshot_id = runtime.session.state["last_snapshot_id"]
+            runtime = LiveRuntime(output_root / "runtime", symbol)
+            runtime.start(now=runtime_now)
+            if runtime.session.state["last_snapshot_id"] == prior_snapshot_id and runtime.session.state["state"] == "ACTIVE":
+                restart_recoveries += 1
         if elapsed_seconds > max_snapshot_elapsed_seconds:
             stopped_reason = f"SNAPSHOT_STAGE_TIMEOUT:{snapshot['snapshot_id']}:{elapsed_seconds:.3f}s"
             stage_timeouts += 1
@@ -472,6 +583,16 @@ def run_integration_harness(
         "candidates_rejected_by_gate": candidates_rejected_by_gate,
         "average_candidate_lifetime": None,
         "candidate_expiry_count": candidate_expiry_count,
+        "unique_candidate_ids": len(unique_candidate_ids),
+        "new_candidates_created": new_candidates_created,
+        "candidates_carried_forward": candidates_carried_forward,
+        "candidate_status_changes": candidate_status_changes,
+        "candidates_expired": candidate_expiry_count,
+        "candidates_invalidated": candidates_invalidated,
+        "duplicate_semantic_candidates": duplicate_semantic_candidates,
+        "part3_eligible_candidates": part3_eligible_candidates,
+        "part3_blocked_by_gate": part3_blocked_by_gate,
+        "part3_not_requested_reason": part3_not_requested_reason,
         "worker_result_count": len(worker_reports),
         "worker_invocations": len(worker_reports),
         "duplicate_event_ratio": 0.0 if significant_events == 0 else round((significant_events - accepted_significant_events) / significant_events, 6),
@@ -493,8 +614,10 @@ def run_integration_harness(
         "duplicate_jobs": 0,
         "identical_state_worker_invocations": 0 if len(set(market_hashes)) == len(market_hashes) or len(worker_reports) == 0 else max(0, len(worker_reports) - len(set(market_hashes))),
         "quarantine_records": 0,
-        "reconnect_attempts": 0,
-        "reconnect_successes": 0,
+        "restart_attempts": restart_attempts,
+        "restart_recoveries": restart_recoveries,
+        "reconnect_attempts": reconnect_attempts,
+        "reconnect_successes": reconnect_successes,
         "closed_bar_violations": 0,
         "timestamp_ordering_errors": 0,
         "mixed_time_errors": 0,
@@ -504,7 +627,8 @@ def run_integration_harness(
         "paused_position_monitoring_active": paused_state["position_monitoring_active"],
         "auto_execution_enabled": False,
         "trade_write_enabled": False,
-        "part3_requests": 0,
+        "part3_requests": sum(part3_decisions.values()),
+        "part3_decisions": part3_decisions,
         "order_actions": 0,
         "integrity": {"worker_job_store": job_ok, "worker_result_store": result_ok, "worker_audit": audit_ok, "errors": job_errors + result_errors + audit_errors},
         "final_decision": (

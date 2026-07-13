@@ -30,6 +30,8 @@ Session 2 `outputs/sprint11_session_2_20260713_104017` produced:
 - Part 3 requests: 0
 - order actions: 0
 
+Session 3 harness instrumentation now records `unique_candidate_ids`, carry-forward, lifecycle changes, expiry/invalidation, duplicate semantic candidates, Part 3 eligibility, gate blocks and request suppression. A Part 3 request is emitted only on the first `READY_FOR_PERMISSION_REVIEW` observation of a semantic candidate. `WAIT` candidates are counted with their non-request reason and do not create repeated Part 3 requests.
+
 Required real or real-snapshot replay paths remain pending:
 
 - stale snapshot -> WAIT

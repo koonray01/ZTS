@@ -20,6 +20,7 @@ from ctl_mt5_snapshot import (
     run_integration_harness,
     validate_snapshot_qc,
 )
+from ctl_decision_core.watcher import diff_decision_state
 
 
 def test_fixture_snapshot_is_not_live_mt5():
@@ -140,7 +141,7 @@ def test_evidence_append_only_collision_and_path_traversal(tmp_path):
 
 
 def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
-    report = run_integration_harness(output_root=tmp_path, iterations=3)
+    report = run_integration_harness(output_root=tmp_path, iterations=3, restart_after_snapshot=1)
     assert report["final_decision"] == "CONDITIONAL_GO_PENDING_REAL_MT5"
     assert report["snapshots_processed"] == 3
     assert report["unique_market_state_hashes"] >= 1
@@ -174,11 +175,61 @@ def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
     assert report["candidate_funnel"]["entry_candidates"] == report["candidate_count"]
     assert report["opportunity_count"] >= 3
     assert report["candidate_count"] >= 0
+    assert report["unique_candidate_ids"] <= report["candidate_count"]
+    assert report["new_candidates_created"] + report["candidates_carried_forward"] == report["candidate_count"]
+    assert report["restart_attempts"] == 1
+    assert report["restart_recoveries"] == 1
+    assert report["part3_requests"] == 0
+    assert report["part3_not_requested_reason"]
     assert report["paused_position_monitoring_active"] is True
     assert report["auto_execution_enabled"] is False
     assert report["trade_write_enabled"] is False
     assert report["order_actions"] == 0
     assert report["integrity"]["errors"] == []
+
+
+def test_harness_reconnect_retries_without_fixture_fallback(tmp_path):
+    class FlakyFixture(FixtureSnapshotAdapter):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def capture(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise SnapshotUnavailable("transient terminal unavailable")
+            return super().capture(**kwargs)
+
+    report = run_integration_harness(
+        output_root=tmp_path,
+        adapter=FlakyFixture(),
+        iterations=1,
+        max_reconnect_attempts=1,
+    )
+    assert report["snapshots_processed"] == 1
+    assert report["reconnect_attempts"] == 1
+    assert report["reconnect_successes"] == 1
+    assert report["source"] == "FIXTURE"
+
+
+def test_watcher_tracks_candidate_status_across_snapshot_scoped_ids():
+    def state(candidate_id, status):
+        return {
+            "market_packet": {"snapshot_id": "SNAP_A", "market_packet_id": "MARKET_A", "market_state": [], "active_zones": [], "opportunities": []},
+            "scenario_packet": {"scenarios": []},
+            "entry_packet": {"candidates": [{
+                "candidate_id": candidate_id,
+                "entry_type": "STRUCTURED_LIMIT",
+                "side": "BUY",
+                "entry_range": {"lower": 2000.0, "upper": 2001.0},
+                "stop": {"price": 1999.0},
+                "trigger": {"mode": "NONE_FOR_LIMIT"},
+                "status": status,
+            }]},
+        }
+
+    result = diff_decision_state(state("ENTRY_A", "WAIT"), state("ENTRY_B", "READY_FOR_PERMISSION_REVIEW"))
+    assert [event["event_type"] for event in result["significant_events"]] == ["ENTRY_WINDOW_OPENED"]
 
 
 def test_forward_shadow_cli_reports_pending_when_real_mt5_unavailable(root, monkeypatch, tmp_path):

@@ -40,6 +40,8 @@ def main() -> int:
     parser.add_argument("--snapshots", type=int, default=20)
     parser.add_argument("--interval-seconds", type=float, default=0)
     parser.add_argument("--max-snapshot-seconds", type=float, default=300)
+    parser.add_argument("--restart-after-snapshot", type=int)
+    parser.add_argument("--max-reconnect-attempts", type=int, default=0)
     args = parser.parse_args()
     adapter = MetaTrader5SnapshotAdapter()
     output = Path(args.output)
@@ -52,6 +54,8 @@ def main() -> int:
         run_id="RUN-SPRINT10-REAL-MT5",
         interval_seconds=args.interval_seconds,
         max_snapshot_elapsed_seconds=args.max_snapshot_seconds,
+        restart_after_snapshot=args.restart_after_snapshot,
+        max_reconnect_attempts=args.max_reconnect_attempts,
     )
     (output / "forward_shadow_report.json").write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     acceptance_status, accepted = classify_acceptance(report)
@@ -75,9 +79,24 @@ def main() -> int:
         "worker_invocations": report["worker_invocations"],
         "identical_state_worker_invocations": report.get("identical_state_worker_invocations", 0),
         "candidate_count": report.get("candidate_count", 0),
+        "unique_candidate_ids": report.get("unique_candidate_ids", 0),
+        "new_candidates_created": report.get("new_candidates_created", 0),
+        "candidates_carried_forward": report.get("candidates_carried_forward", 0),
+        "candidate_status_changes": report.get("candidate_status_changes", 0),
+        "candidates_expired": report.get("candidates_expired", 0),
+        "candidates_invalidated": report.get("candidates_invalidated", 0),
+        "duplicate_semantic_candidates": report.get("duplicate_semantic_candidates", 0),
+        "part3_eligible_candidates": report.get("part3_eligible_candidates", 0),
+        "part3_blocked_by_gate": report.get("part3_blocked_by_gate", {}),
+        "part3_not_requested_reason": report.get("part3_not_requested_reason", {}),
         "snapshots_without_candidate": report.get("snapshots_without_candidate", 0),
         "candidate_suppression_explained_ratio": report.get("candidate_suppression_explained_ratio"),
         "part3_requests": report.get("part3_requests", 0),
+        "part3_decisions": report.get("part3_decisions", {}),
+        "restart_attempts": report.get("restart_attempts", 0),
+        "restart_recoveries": report.get("restart_recoveries", 0),
+        "reconnect_attempts": report.get("reconnect_attempts", 0),
+        "reconnect_successes": report.get("reconnect_successes", 0),
         "order_actions": report["order_actions"],
         "permission_leakage": report.get("permission_leakage", 0),
         "queue_errors": 0 if report.get("integrity", {}).get("worker_job_store") else 1,
