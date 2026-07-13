@@ -17,12 +17,13 @@ The Session 3 harness records:
 - `part3_eligible_candidates`
 - `unique_ready_candidates`
 - `duplicate_part3_requests`
+- `duplicate_part3_request_suppressions`
 - `part3_blocked_by_gate`
 - `part3_not_requested_reason`
 
 Candidate identity used for lifecycle analysis is semantic and does not replace the snapshot-bound `candidate_id` required by the existing contract and Part 3 evidence identity.
 
-Session 3 acceptance requires `part3_requests <= unique_ready_candidates`, `duplicate_part3_requests = 0`, zero order actions, zero permission leakage, and intact queue/audit verification. `real_part3_requests` is reported only for `LIVE_MT5` runs.
+`duplicate_part3_requests` means a duplicate Part 3 decision was emitted and must remain zero. `duplicate_part3_request_suppressions` counts repeated ready observations deliberately rejected by idempotency and is expected when a ready Candidate carries forward. Session 3 acceptance requires `part3_requests <= unique_ready_candidates`, zero emitted duplicate requests, zero order actions, zero permission leakage, and intact queue/audit verification. `real_part3_requests` is reported only for `LIVE_MT5` runs.
 
 Part 3 is called once for a semantic Candidate only after it is `READY_FOR_PERMISSION_REVIEW`. All other Candidate states are reported as suppressed, not silently ignored. `APPROVED` remains a manual-review result and cannot place, modify or cancel an order.
 

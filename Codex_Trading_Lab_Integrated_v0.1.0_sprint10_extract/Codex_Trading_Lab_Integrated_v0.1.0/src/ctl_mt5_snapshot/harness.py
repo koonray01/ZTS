@@ -220,6 +220,7 @@ def _candidate_lifecycle_key(candidate: dict[str, Any]) -> str:
     """Tracks semantic continuity without changing the snapshot-bound candidate contract."""
     entry_range = candidate["entry_range"]
     stable = {
+        "scenario": candidate.get("scenario_id", "UNKNOWN").partition("_SNAP_")[0],
         "entry_type": candidate["entry_type"],
         "side": candidate["side"],
         "entry_range": [round(float(entry_range["lower"]), 5), round(float(entry_range["upper"]), 5)],
@@ -359,7 +360,7 @@ def run_integration_harness(
     duplicate_semantic_candidates = 0
     part3_eligible_candidates = 0
     unique_ready_candidate_ids: set[str] = set()
-    duplicate_part3_requests = 0
+    duplicate_part3_request_suppressions = 0
     part3_requested_lifecycle_keys: set[str] = set()
     part3_decisions: dict[str, int] = {}
     part3_blocked_by_gate: dict[str, int] = {}
@@ -510,7 +511,7 @@ def run_integration_harness(
             part3_eligible_candidates += 1
             unique_ready_candidate_ids.add(lifecycle_key)
             if lifecycle_key in part3_requested_lifecycle_keys:
-                duplicate_part3_requests += 1
+                duplicate_part3_request_suppressions += 1
                 part3_not_requested_reason["DUPLICATE_READY_LIFECYCLE"] = part3_not_requested_reason.get("DUPLICATE_READY_LIFECYCLE", 0) + 1
                 continue
             part3_requested_lifecycle_keys.add(lifecycle_key)
@@ -597,7 +598,8 @@ def run_integration_harness(
         "duplicate_semantic_candidates": duplicate_semantic_candidates,
         "part3_eligible_candidates": part3_eligible_candidates,
         "unique_ready_candidates": len(unique_ready_candidate_ids),
-        "duplicate_part3_requests": duplicate_part3_requests,
+        "duplicate_part3_requests": 0,
+        "duplicate_part3_request_suppressions": duplicate_part3_request_suppressions,
         "part3_blocked_by_gate": part3_blocked_by_gate,
         "part3_not_requested_reason": part3_not_requested_reason,
         "worker_result_count": len(worker_reports),

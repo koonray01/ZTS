@@ -184,6 +184,7 @@ def test_full_pipeline_identity_harness_and_runtime_reinitialization_recovery(tm
     assert report["part3_requests"] == 0
     assert report["real_part3_requests"] == 0
     assert report["duplicate_part3_requests"] == 0
+    assert report["duplicate_part3_request_suppressions"] == 0
     assert report["part3_not_requested_reason"]
     assert report["paused_position_monitoring_active"] is True
     assert report["auto_execution_enabled"] is False
@@ -223,6 +224,7 @@ def test_watcher_tracks_candidate_status_across_snapshot_scoped_ids():
             "scenario_packet": {"scenarios": []},
             "entry_packet": {"candidates": [{
                 "candidate_id": candidate_id,
+                "scenario_id": "SCN_SR1_BUY_1_SNAP_ANY",
                 "entry_type": "STRUCTURED_LIMIT",
                 "side": "BUY",
                 "entry_range": {"lower": 2000.0, "upper": 2001.0},

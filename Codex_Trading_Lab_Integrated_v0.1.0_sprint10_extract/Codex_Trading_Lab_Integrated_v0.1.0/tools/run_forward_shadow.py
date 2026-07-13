@@ -90,6 +90,7 @@ def main() -> int:
         "part3_eligible_candidates": report.get("part3_eligible_candidates", 0),
         "unique_ready_candidates": report.get("unique_ready_candidates", 0),
         "duplicate_part3_requests": report.get("duplicate_part3_requests", 0),
+        "duplicate_part3_request_suppressions": report.get("duplicate_part3_request_suppressions", 0),
         "part3_blocked_by_gate": report.get("part3_blocked_by_gate", {}),
         "part3_not_requested_reason": report.get("part3_not_requested_reason", {}),
         "snapshots_without_candidate": report.get("snapshots_without_candidate", 0),

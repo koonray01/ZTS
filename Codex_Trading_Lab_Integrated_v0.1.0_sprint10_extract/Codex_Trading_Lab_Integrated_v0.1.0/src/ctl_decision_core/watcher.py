@@ -29,6 +29,7 @@ def _candidate_lifecycle_key(candidate: dict[str, Any]) -> str:
     entry_range = candidate["entry_range"]
     return sanitize_id(
         "CAND_"
+        f"{candidate.get('scenario_id', 'UNKNOWN').partition('_SNAP_')[0]}_"
         f"{candidate['entry_type']}_{candidate['side']}_"
         f"{entry_range['lower']:.5f}_{entry_range['upper']:.5f}_"
         f"{candidate['stop']['price']:.5f}_{candidate['trigger']['mode']}"
