@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1.0",
+  "submission_id": "SUB-CASE-SHOCK-NO-TRADE-001-CORRECT",
+  "case_id": "CASE-SHOCK-NO-TRADE-001",
+  "step_id": "STEP-001",
+  "snapshot_id": "SNAP-MULTITIMEFRAME_SHOCK-001",
+  "market_read": {
+    "direction": "TRANSITION",
+    "phase": "EXPANSION",
+    "volatility": "SHOCK"
+  },
+  "selected_scenario_id": null,
+  "action": "NO_TRADE",
+  "selected_candidate_id": null,
+  "permission_claim": "WAIT",
+  "management_plan": {
+    "initial_stop_defined": true,
+    "target_defined": true,
+    "widen_stop_allowed": false,
+    "add_to_loser_allowed": false
+  },
+  "evidence_refs": [
+    "EVID-MULTITIMEFRAME_SHOCK-001",
+    "SD_M5_001",
+    "BAR-M5-0057"
+  ],
+  "submitted_at": "2025-03-03T05:00:00Z",
+  "entry_origin": "NO_ENTRY"
+}

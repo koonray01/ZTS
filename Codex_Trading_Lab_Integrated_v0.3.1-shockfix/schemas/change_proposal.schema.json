@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/change_proposal.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proposal_id",
+    "proposal_type",
+    "target_id",
+    "from_version",
+    "to_version",
+    "status",
+    "rationale",
+    "evidence_refs",
+    "tests_required",
+    "shadow_plan",
+    "human_approval_required",
+    "human_approved",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "proposal_id": {
+      "type": "string"
+    },
+    "proposal_type": {
+      "enum": [
+        "CANDIDATE_RULE",
+        "POLICY_UPDATE",
+        "SKILL_UPDATE"
+      ]
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "from_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "to_version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "UNDER_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "DEPLOYED",
+        "DEPRECATED"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests_required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "shadow_plan": {
+      "type": "string"
+    },
+    "human_approval_required": {
+      "const": true
+    },
+    "human_approved": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/candidate_lifecycle.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "snapshots_analyzed", "total_candidate_observations", "unique_candidate_count", "status_transition_counts", "final_status_counts", "stable_wait_candidate_count", "candidate_churn_ratio", "candidates", "execution_permission_effect", "limitations"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "mode": {"const": "CANDIDATE_LIFECYCLE_QA_ONLY"},
+    "snapshots_analyzed": {"type": "integer", "minimum": 0},
+    "total_candidate_observations": {"type": "integer", "minimum": 0},
+    "unique_candidate_count": {"type": "integer", "minimum": 0},
+    "status_transition_counts": {"type": "object"},
+    "final_status_counts": {"type": "object"},
+    "stable_wait_candidate_count": {"type": "integer", "minimum": 0},
+    "candidate_churn_ratio": {"type": ["number", "null"]},
+    "candidates": {"type": "array", "items": {"type": "object"}},
+    "execution_permission_effect": {"const": "NONE"},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_intake.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "symbol", "partition", "source", "records", "summary", "readiness", "execution_permission_effect", "limitations"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "mode": {"const": "FORWARD_SHADOW_INTAKE"},
+    "symbol": {"type": "string"},
+    "partition": {"enum": ["DEV", "VALIDATION", "LOCKED_OOS", "FORWARD_SHADOW"]},
+    "source": {"const": "LIVE_MT5"},
+    "records": {"type": "array", "items": {"type": "object"}},
+    "summary": {"type": "object"},
+    "readiness": {"const": "OUTCOME_LABELING_REQUIRED"},
+    "execution_permission_effect": {"const": "NONE"},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

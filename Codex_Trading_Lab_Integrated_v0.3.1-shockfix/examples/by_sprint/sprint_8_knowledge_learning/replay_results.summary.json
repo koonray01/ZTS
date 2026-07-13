@@ -1,0 +1,44 @@
+[
+  {
+    "case_id": "CASE-BULLISH-CONT-001",
+    "submission_id": "SUB-CASE-BULLISH-CONT-001-CORRECT",
+    "score": 100.0,
+    "failure_modes": []
+  },
+  {
+    "case_id": "CASE-SHOCK-NO-TRADE-001",
+    "submission_id": "SUB-CASE-SHOCK-NO-TRADE-001-CORRECT",
+    "score": 100.0,
+    "failure_modes": []
+  },
+  {
+    "case_id": "CASE-AMBIGUOUS-001",
+    "submission_id": "SUB-CASE-AMBIGUOUS-001-CORRECT",
+    "score": 100.0,
+    "failure_modes": []
+  },
+  {
+    "case_id": "CASE-BULLISH-CONT-001",
+    "submission_id": "SUB-FUTURE-LEAK-1",
+    "score": 90.0,
+    "failure_modes": [
+      "FUTURE_LEAKAGE_VIOLATION"
+    ]
+  },
+  {
+    "case_id": "CASE-BULLISH-CONT-001",
+    "submission_id": "SUB-FUTURE-LEAK-2",
+    "score": 90.0,
+    "failure_modes": [
+      "FUTURE_LEAKAGE_VIOLATION"
+    ]
+  },
+  {
+    "case_id": "CASE-BULLISH-CONT-001",
+    "submission_id": "SUB-FUTURE-LEAK-3",
+    "score": 90.0,
+    "failure_modes": [
+      "FUTURE_LEAKAGE_VIOLATION"
+    ]
+  }
+]

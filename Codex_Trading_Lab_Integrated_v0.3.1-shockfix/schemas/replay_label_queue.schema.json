@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_label_queue.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "source", "symbol", "partition", "items", "summary", "readiness", "execution_permission_effect", "limitations"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "mode": {"const": "INDEPENDENT_OUTCOME_LABEL_QUEUE"},
+    "source": {"const": "LIVE_MT5"},
+    "symbol": {"type": "string"},
+    "partition": {"enum": ["DEV", "VALIDATION", "LOCKED_OOS", "FORWARD_SHADOW"]},
+    "items": {"type": "array", "items": {"type": "object"}},
+    "summary": {"type": "object"},
+    "readiness": {"enum": ["READY_FOR_LABELING", "NO_LABELABLE_CANDIDATES"]},
+    "execution_permission_effect": {"const": "NONE"},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

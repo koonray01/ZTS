@@ -1,0 +1,48 @@
+{
+  "tools": [
+    {
+      "tool": "tools/validate_contracts.py",
+      "source_pack": "sprint_0_contracts"
+    },
+    {
+      "tool": "tools/run_eyes.py",
+      "source_pack": "sprint_2_basic_eyes"
+    },
+    {
+      "tool": "tools/run_advanced_eyes.py",
+      "source_pack": "sprint_3_advanced_eyes"
+    },
+    {
+      "tool": "tools/run_decision_core.py",
+      "source_pack": "sprint_4_decision_core"
+    },
+    {
+      "tool": "tools/run_permission_agent.py",
+      "source_pack": "sprint_5_permission_agent"
+    },
+    {
+      "tool": "tools/run_live_session.py",
+      "source_pack": "sprint_6_live_runtime"
+    },
+    {
+      "tool": "tools/list_cases.py",
+      "source_pack": "sprint_7_replay_training"
+    },
+    {
+      "tool": "tools/run_replay_case.py",
+      "source_pack": "sprint_7_replay_training"
+    },
+    {
+      "tool": "tools/create_change_proposal.py",
+      "source_pack": "sprint_8_knowledge_learning"
+    },
+    {
+      "tool": "tools/run_learning_cycle.py",
+      "source_pack": "sprint_8_knowledge_learning"
+    },
+    {
+      "tool": "tools/run_worker_dry_run.py",
+      "source_pack": "sprint_9_codex_worker"
+    }
+  ]
+}

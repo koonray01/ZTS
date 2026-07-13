@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1.0",
+  "observation_id": "OBS_XAUUSD_M5_YYYYMMDDTHHMMSSZ",
+  "symbol": "XAUUSD",
+  "capture_time": "2026-07-13T12:00:00Z",
+  "broker_utc_offset_minutes": 180,
+  "candle_state": "MIXED",
+  "price_tolerance": 1.0,
+  "timeframes": [
+    {
+      "timeframe": "M5",
+      "visible_price": 0.0,
+      "structure": {"internal": "UNKNOWN", "external": "UNKNOWN"},
+      "recent_leg": "UNKNOWN",
+      "zones": []
+    }
+  ]
+}

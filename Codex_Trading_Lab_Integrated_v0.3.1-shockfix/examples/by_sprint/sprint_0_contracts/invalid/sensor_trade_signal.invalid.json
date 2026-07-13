@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.2.0",
+  "sensor_result_id": "SENSOR-RESULT-001",
+  "run_id": "RUN-XAUUSD-001",
+  "snapshot_id": "SNAP-XAUUSD-001",
+  "sensor": {
+    "name": "candle_features",
+    "version": "0.1.0",
+    "category": "FEATURE"
+  },
+  "symbol": "XAUUSD",
+  "timeframe": "M5",
+  "status": "PASS",
+  "facts": [
+    {
+      "claim_id": "CLAIM-FACT-001",
+      "name": "last_closed_bar_close",
+      "value": 2401.0,
+      "unit": "price",
+      "evidence_refs": [
+        "BAR-M5-001"
+      ]
+    }
+  ],
+  "derived": [
+    {
+      "claim_id": "CLAIM-DERIVED-001",
+      "name": "body_direction",
+      "value": "BULLISH",
+      "checker_id": "CHECK-CANDLE-DIRECTION",
+      "input_refs": [
+        "BAR-M5-001"
+      ],
+      "evidence_refs": [
+        "BAR-M5-001"
+      ]
+    }
+  ],
+  "events": [],
+  "unknowns": [],
+  "warnings": [],
+  "errors": [],
+  "evidence_refs": [
+    "EVID-SNAPSHOT-001"
+  ],
+  "generated_at": "2026-07-12T08:00:01Z",
+  "runtime_ms": 2,
+  "trade_signal": "BUY"
+}

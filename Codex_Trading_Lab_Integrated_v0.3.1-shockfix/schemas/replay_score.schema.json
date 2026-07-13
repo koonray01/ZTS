@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_score.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "score_id",
+    "case_id",
+    "submission_id",
+    "total_score",
+    "ledgers",
+    "outcome",
+    "failure_modes",
+    "deterministic_fail",
+    "entry_engine_credit",
+    "process_pass"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "score_id": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "submission_id": {
+      "type": "string"
+    },
+    "total_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "ledgers": {
+      "type": "object",
+      "required": [
+        "market_read",
+        "scenario",
+        "permission",
+        "entry",
+        "management",
+        "process"
+      ],
+      "properties": {
+        "market_read": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "scenario": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "permission": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "entry": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "management": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "process": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "required": [
+        "classification",
+        "realized_r",
+        "clean_win"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "TP_FIRST",
+            "SL_FIRST",
+            "NO_TRIGGER",
+            "EXPIRED",
+            "AMBIGUOUS_SAME_BAR",
+            "MANUAL_OVERRIDE",
+            "OPEN_AT_END"
+          ]
+        },
+        "realized_r": {
+          "type": "number"
+        },
+        "clean_win": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "failure_modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "deterministic_fail": {
+      "type": "boolean"
+    },
+    "entry_engine_credit": {
+      "type": "boolean"
+    },
+    "process_pass": {
+      "type": "boolean"
+    }
+  }
+}

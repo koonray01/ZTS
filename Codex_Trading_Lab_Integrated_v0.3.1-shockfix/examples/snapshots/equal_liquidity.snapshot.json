@@ -1,0 +1,258 @@
+{
+  "schema_version": "0.2.0",
+  "snapshot_id": "SNAP-EQUAL_LIQUIDITY-001",
+  "run_id": "RUN-EQUAL_LIQUIDITY-001",
+  "request_id": "REQ-EQUAL_LIQUIDITY-001",
+  "source": "FIXTURE",
+  "symbol": "XAUUSD",
+  "terminal": {
+    "terminal_id": "FIXTURE-TERMINAL",
+    "account_id": null,
+    "server": null,
+    "connected": false,
+    "trade_write_enabled": false,
+    "terminal_build": null
+  },
+  "capture_time": "2025-02-03T01:15:10Z",
+  "broker_time": "2025-02-03T01:15:10Z",
+  "broker_utc_offset_minutes": 0,
+  "last_tick_time": null,
+  "freshness": {
+    "status": "FRESH",
+    "age_ms": 1000,
+    "stale_after_ms": 300000,
+    "reasons": []
+  },
+  "timeframes": [
+    {
+      "timeframe": "M5",
+      "requested_bars": 15,
+      "returned_bars": 15,
+      "last_closed_bar_time": "2025-02-03T01:15:00Z",
+      "bars": [
+        {
+          "bar_id": "BAR-M5-0001",
+          "open_time": "2025-02-03T00:00:00Z",
+          "close_time": "2025-02-03T00:05:00Z",
+          "open": 100,
+          "high": 101,
+          "low": 99,
+          "close": 100.5,
+          "tick_volume": 100,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0002",
+          "open_time": "2025-02-03T00:05:00Z",
+          "close_time": "2025-02-03T00:10:00Z",
+          "open": 100.5,
+          "high": 102.0,
+          "low": 100,
+          "close": 101.6,
+          "tick_volume": 101,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0003",
+          "open_time": "2025-02-03T00:10:00Z",
+          "close_time": "2025-02-03T00:15:00Z",
+          "open": 101.6,
+          "high": 102.2,
+          "low": 100.8,
+          "close": 101.0,
+          "tick_volume": 102,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0004",
+          "open_time": "2025-02-03T00:15:00Z",
+          "close_time": "2025-02-03T00:20:00Z",
+          "open": 101.0,
+          "high": 103.0,
+          "low": 100.5,
+          "close": 102.5,
+          "tick_volume": 103,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0005",
+          "open_time": "2025-02-03T00:20:00Z",
+          "close_time": "2025-02-03T00:25:00Z",
+          "open": 102.5,
+          "high": 103.1,
+          "low": 101.2,
+          "close": 101.6,
+          "tick_volume": 104,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0006",
+          "open_time": "2025-02-03T00:25:00Z",
+          "close_time": "2025-02-03T00:30:00Z",
+          "open": 101.6,
+          "high": 102.8,
+          "low": 100.7,
+          "close": 102.4,
+          "tick_volume": 105,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0007",
+          "open_time": "2025-02-03T00:30:00Z",
+          "close_time": "2025-02-03T00:35:00Z",
+          "open": 102.4,
+          "high": 103.02,
+          "low": 101.0,
+          "close": 101.5,
+          "tick_volume": 106,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0008",
+          "open_time": "2025-02-03T00:35:00Z",
+          "close_time": "2025-02-03T00:40:00Z",
+          "open": 101.5,
+          "high": 102.2,
+          "low": 99.8,
+          "close": 100.4,
+          "tick_volume": 107,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0009",
+          "open_time": "2025-02-03T00:40:00Z",
+          "close_time": "2025-02-03T00:45:00Z",
+          "open": 100.4,
+          "high": 101.0,
+          "low": 99.7,
+          "close": 100.6,
+          "tick_volume": 108,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0010",
+          "open_time": "2025-02-03T00:45:00Z",
+          "close_time": "2025-02-03T00:50:00Z",
+          "open": 100.6,
+          "high": 102.9,
+          "low": 100.2,
+          "close": 102.4,
+          "tick_volume": 109,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0011",
+          "open_time": "2025-02-03T00:50:00Z",
+          "close_time": "2025-02-03T00:55:00Z",
+          "open": 102.4,
+          "high": 103.04,
+          "low": 101.2,
+          "close": 101.7,
+          "tick_volume": 110,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0012",
+          "open_time": "2025-02-03T00:55:00Z",
+          "close_time": "2025-02-03T01:00:00Z",
+          "open": 101.7,
+          "high": 102.3,
+          "low": 99.9,
+          "close": 100.5,
+          "tick_volume": 111,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0013",
+          "open_time": "2025-02-03T01:00:00Z",
+          "close_time": "2025-02-03T01:05:00Z",
+          "open": 100.5,
+          "high": 101.2,
+          "low": 99.8,
+          "close": 100.8,
+          "tick_volume": 112,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0014",
+          "open_time": "2025-02-03T01:05:00Z",
+          "close_time": "2025-02-03T01:10:00Z",
+          "open": 100.8,
+          "high": 102.0,
+          "low": 100.3,
+          "close": 101.5,
+          "tick_volume": 113,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        },
+        {
+          "bar_id": "BAR-M5-0015",
+          "open_time": "2025-02-03T01:10:00Z",
+          "close_time": "2025-02-03T01:15:00Z",
+          "open": 101.5,
+          "high": 102.4,
+          "low": 100.9,
+          "close": 101.2,
+          "tick_volume": 114,
+          "real_volume": null,
+          "spread_points": 20,
+          "is_closed": true
+        }
+      ]
+    }
+  ],
+  "account_context": {
+    "status": "UNAVAILABLE",
+    "currency": null,
+    "balance": null,
+    "equity": null,
+    "margin_free": null,
+    "positions": []
+  },
+  "indicator_evidence": [],
+  "evidence_refs": [
+    "EVID-EQUAL_LIQUIDITY-001"
+  ],
+  "qc": {
+    "decision": "PASS",
+    "checks": [
+      {
+        "check_id": "QC-CLOSED-BARS",
+        "status": "PASS",
+        "message": "Fixture closed bars."
+      }
+    ],
+    "warnings": [],
+    "errors": []
+  },
+  "component_versions": {
+    "snapshot_service": "fixture-0.2.0"
+  }
+}

@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/sensor_output.schema.json",
+  "title": "Codex Trading Lab Sensor Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sensor_result_id",
+    "run_id",
+    "snapshot_id",
+    "sensor",
+    "symbol",
+    "timeframe",
+    "status",
+    "facts",
+    "derived",
+    "events",
+    "unknowns",
+    "warnings",
+    "errors",
+    "evidence_refs",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "sensor_result_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "sensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "category"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "DATA",
+            "FEATURE",
+            "STRUCTURE",
+            "TREND",
+            "RANGE",
+            "ZONE",
+            "LIQUIDITY",
+            "PRICE_ACTION",
+            "VOLATILITY",
+            "CONTEXT"
+          ]
+        }
+      }
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "timeframe": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "M1",
+        "M5",
+        "M15",
+        "M30",
+        "H1",
+        "H4",
+        "D1",
+        null
+      ]
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "PARTIAL",
+        "BLOCKED",
+        "ERROR",
+        "UNSCORABLE"
+      ]
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "name",
+          "value",
+          "evidence_refs"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {},
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "derived": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "name",
+          "value",
+          "checker_id",
+          "input_refs",
+          "evidence_refs"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {},
+          "checker_id": {
+            "type": "string"
+          },
+          "input_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_type",
+          "status",
+          "direction",
+          "closed_bar_confirmed",
+          "evidence_refs"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "event_type": {
+            "enum": [
+              "SWING_HIGH",
+              "SWING_LOW",
+              "BREAK",
+              "RECLAIM",
+              "RETEST_HOLD",
+              "RETEST_FAIL",
+              "SWEEP",
+              "ACCEPTANCE",
+              "DISPLACEMENT",
+              "COMPRESSION",
+              "REJECTION",
+              "ZONE_TOUCH",
+              "ZONE_INVALIDATION",
+              "SHOCK",
+              "REGIME_CHANGE",
+              "OTHER"
+            ]
+          },
+          "status": {
+            "enum": [
+              "CANDIDATE",
+              "CONFIRMED",
+              "FAILED",
+              "INVALIDATED",
+              "EXPIRED"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "BULLISH",
+              "BEARISH",
+              "NEUTRAL",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "level": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "band": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "lower",
+              "upper"
+            ],
+            "properties": {
+              "lower": {
+                "type": "number"
+              },
+              "upper": {
+                "type": "number"
+              }
+            }
+          },
+          "closed_bar_confirmed": {
+            "type": "boolean"
+          },
+          "first_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "confirmed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "label": {
+            "type": ["string", "null"],
+            "maxLength": 64
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "blocking"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+      },
+      "uniqueItems": true
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "runtime_ms": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

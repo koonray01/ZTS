@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/trainee_decision.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "submission_id",
+    "case_id",
+    "step_id",
+    "snapshot_id",
+    "market_read",
+    "selected_scenario_id",
+    "action",
+    "selected_candidate_id",
+    "permission_claim",
+    "management_plan",
+    "evidence_refs",
+    "submitted_at",
+    "entry_origin"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "submission_id": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "step_id": {
+      "type": "string"
+    },
+    "snapshot_id": {
+      "type": "string"
+    },
+    "market_read": {
+      "type": "object",
+      "required": [
+        "direction",
+        "phase",
+        "volatility"
+      ],
+      "properties": {
+        "direction": {
+          "enum": [
+            "BULLISH",
+            "BEARISH",
+            "RANGE",
+            "TRANSITION",
+            "UNKNOWN"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "IMPULSE",
+            "PULLBACK",
+            "BALANCED",
+            "COMPRESSION",
+            "EXPANSION",
+            "UNKNOWN"
+          ]
+        },
+        "volatility": {
+          "enum": [
+            "NORMAL",
+            "HIGH",
+            "SHOCK",
+            "UNKNOWN"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "selected_scenario_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "action": {
+      "enum": [
+        "NO_TRADE",
+        "WAIT",
+        "REQUEST_PART3",
+        "MANUAL_OVERRIDE"
+      ]
+    },
+    "selected_candidate_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "permission_claim": {
+      "enum": [
+        "NOT_EVALUATED",
+        "WAIT",
+        "APPROVED",
+        "REJECTED",
+        "INVALIDATED"
+      ]
+    },
+    "management_plan": {
+      "type": "object",
+      "required": [
+        "initial_stop_defined",
+        "target_defined",
+        "widen_stop_allowed",
+        "add_to_loser_allowed"
+      ],
+      "properties": {
+        "initial_stop_defined": {
+          "type": "boolean"
+        },
+        "target_defined": {
+          "type": "boolean"
+        },
+        "widen_stop_allowed": {
+          "type": "boolean"
+        },
+        "add_to_loser_allowed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entry_origin": {
+      "enum": [
+        "SYSTEM_CANDIDATE",
+        "MANUAL_OVERRIDE",
+        "NO_ENTRY"
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/worker_context.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "system_contract",
+    "skill_contract",
+    "job_contract",
+    "trusted_state_references",
+    "untrusted_market_data",
+    "effective_tools",
+    "budgets",
+    "context_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "system_contract": {
+      "type": "object"
+    },
+    "skill_contract": {
+      "type": "object"
+    },
+    "job_contract": {
+      "type": "object"
+    },
+    "trusted_state_references": {
+      "type": "object"
+    },
+    "untrusted_market_data": {
+      "type": "object"
+    },
+    "effective_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "budgets": {
+      "type": "object"
+    },
+    "context_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

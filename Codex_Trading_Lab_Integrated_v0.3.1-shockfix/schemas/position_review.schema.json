@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/position_review.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "position_id",
+    "snapshot_id",
+    "symbol",
+    "state",
+    "entry_origin",
+    "scenario_integrity",
+    "progress_r",
+    "recommendation",
+    "manual_action_required",
+    "reasons",
+    "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "review_id": {
+      "type": "string"
+    },
+    "position_id": {
+      "type": "string"
+    },
+    "snapshot_id": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "ACTIVE",
+        "PROTECTED",
+        "DEGRADED",
+        "EXIT_REVIEW",
+        "CLOSED",
+        "UNRECONCILED"
+      ]
+    },
+    "entry_origin": {
+      "enum": [
+        "SYSTEM_APPROVED",
+        "MANUAL_OVERRIDE",
+        "UNKNOWN"
+      ]
+    },
+    "scenario_integrity": {
+      "enum": [
+        "INTACT",
+        "DEGRADED",
+        "INVALIDATED",
+        "UNKNOWN"
+      ]
+    },
+    "progress_r": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recommendation": {
+      "enum": [
+        "HOLD",
+        "PROTECT",
+        "REDUCE_REVIEW",
+        "EXIT_REVIEW",
+        "MANUAL_RECONCILIATION_REQUIRED",
+        "NONE"
+      ]
+    },
+    "manual_action_required": {
+      "type": "boolean"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

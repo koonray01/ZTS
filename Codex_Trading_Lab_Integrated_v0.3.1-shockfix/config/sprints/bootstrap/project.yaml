@@ -1,0 +1,8 @@
+project:
+  working_name: Codex Trading Lab
+  version: 0.1.0-bootstrap
+  standalone: true
+  execution_mode: manual
+  primary_symbol: XAUUSD
+  default_timeframes: [M5, M15, H1]
+  integration_with_existing_tradingos: none

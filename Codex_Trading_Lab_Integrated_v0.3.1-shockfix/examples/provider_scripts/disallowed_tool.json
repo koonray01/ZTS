@@ -1,0 +1,20 @@
+[
+  {
+    "turn_type": "TOOL_CALLS",
+    "tool_calls": [
+      {
+        "tool_call_id": "CALL-BAD-001",
+        "tool_name": "run_part3",
+        "arguments": {
+          "candidate_id": "ANY",
+          "account": {},
+          "dependency_state": {}
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 30
+    }
+  }
+]

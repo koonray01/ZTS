@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1.0",
+  "case_id": "CASE-AMBIGUOUS-001",
+  "case_version": "0.1.0",
+  "symbol": "XAUUSD",
+  "partition": "LOCKED_OOS",
+  "difficulty": "ADVERSARIAL",
+  "curriculum_tags": [
+    "process",
+    "outcome_ambiguity",
+    "entry"
+  ],
+  "visible_steps": [
+    {
+      "step_id": "STEP-001",
+      "snapshot_path": "visible/step_001.snapshot.json",
+      "replay_time": "2025-03-03T01:40:00Z"
+    }
+  ],
+  "hidden_outcome_path": "hidden/outcome.json",
+  "judge_key_path": "hidden/judge_key.json",
+  "locked_for_tuning": true
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_calibration.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "mode", "calibration_status", "thresholds", "coverage",
+    "process_quality", "candidate_outcomes", "trading_edge_established",
+    "execution_permission_effect", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "mode": {"const": "RESEARCH_QA_ONLY"},
+    "calibration_status": {"enum": ["INSUFFICIENT_DATA", "DATA_QUALITY_BLOCK", "READY_FOR_REVIEW"]},
+    "thresholds": {"type": "object"},
+    "coverage": {"type": "object"},
+    "process_quality": {"type": "object"},
+    "candidate_outcomes": {"type": "object"},
+    "trading_edge_established": {"const": false},
+    "execution_permission_effect": {"const": "NONE"},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

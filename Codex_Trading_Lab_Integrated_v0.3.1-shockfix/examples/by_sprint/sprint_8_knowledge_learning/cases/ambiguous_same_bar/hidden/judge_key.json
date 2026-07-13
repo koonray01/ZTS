@@ -1,0 +1,10 @@
+{
+  "expected_market_read": {
+    "direction": "BULLISH",
+    "phase": "IMPULSE",
+    "volatility": "NORMAL"
+  },
+  "expected_action": "WAIT",
+  "preferred_scenario_ids": [],
+  "preferred_entry_types": []
+}

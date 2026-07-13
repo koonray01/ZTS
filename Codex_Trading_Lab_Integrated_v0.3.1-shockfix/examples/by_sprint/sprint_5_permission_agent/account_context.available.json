@@ -1,0 +1,10 @@
+{
+  "account_context_id": "ACCOUNT-CONTEXT-DEMO-001",
+  "status": "AVAILABLE",
+  "account_id_masked": "12****34",
+  "symbol": "XAUUSD",
+  "planned_risk_percent": 0.5,
+  "daily_loss_percent": 0.0,
+  "open_positions": 0,
+  "new_entries_blocked": false
+}

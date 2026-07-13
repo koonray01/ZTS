@@ -1,0 +1,13 @@
+{
+  "skill_id": "ctl-entry-evaluator",
+  "version": "0.1.0",
+  "allowed_tools": [
+    "list_entry_candidates",
+    "inspect_evidence_refs"
+  ],
+  "dependencies": {
+    "part3_policy": "PART3_POLICY_0.1.0",
+    "decision_core": "0.1.0"
+  },
+  "manual_execution_only": true
+}

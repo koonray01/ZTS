@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "submission_id": "SUB-FUTURE-LEAK",
+  "case_id": "CASE-BULLISH-CONT-001",
+  "step_id": "STEP-001",
+  "snapshot_id": "SNAP-DIRECTIONAL-MARKET-001",
+  "market_read": {
+    "direction": "BULLISH",
+    "phase": "IMPULSE",
+    "volatility": "NORMAL"
+  },
+  "selected_scenario_id": "SCN_BR1_BUY_1_SNAP_DIRECTIONAL_MARKET_001",
+  "action": "REQUEST_PART3",
+  "selected_candidate_id": "ENTRY_EARLY_CONFIRMATION_BUY_1_SNAP_DIRECTIONAL_MARKET_001",
+  "permission_claim": "NOT_EVALUATED",
+  "management_plan": {
+    "initial_stop_defined": true,
+    "target_defined": true,
+    "widen_stop_allowed": false,
+    "add_to_loser_allowed": false
+  },
+  "evidence_refs": [
+    "EVID-DIRECTIONAL-MARKET-001",
+    "SR_M5_001",
+    "BAR-M5-0007",
+    "FUTURE-EVIDENCE-999"
+  ],
+  "submitted_at": "2025-03-03T01:40:00Z",
+  "entry_origin": "SYSTEM_CANDIDATE"
+}

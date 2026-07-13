@@ -1,0 +1,88 @@
+{
+  "schema_version": "0.2.0",
+  "entry_packet_id": "ENTP-XAUUSD-001",
+  "run_id": "RUN-XAUUSD-001",
+  "snapshot_id": "SNAP-XAUUSD-001",
+  "scenario_packet_id": "SCNP-XAUUSD-001",
+  "symbol": "XAUUSD",
+  "generated_at": "2026-07-12T08:00:04Z",
+  "candidates": [
+    {
+      "candidate_id": "ENTRY-LIMIT-001",
+      "scenario_id": "SCN-PRIMARY-001",
+      "entry_type": "STRUCTURED_LIMIT",
+      "side": "BUY",
+      "status": "WATCH",
+      "grade": "UNSCORED",
+      "entry_range": {
+        "lower": 2397.5,
+        "upper": 2398.5
+      },
+      "trigger": {
+        "mode": "NONE_FOR_LIMIT",
+        "required_events": [],
+        "status": "NOT_REQUIRED"
+      },
+      "hard_requirements": [
+        {
+          "requirement_id": "REQ-ZONE-PROVENANCE",
+          "status": "PENDING",
+          "message": "Zone provenance not yet validated."
+        }
+      ],
+      "quality_enhancers": [
+        {
+          "name": "H1_STRUCTURE_ALIGNMENT",
+          "status": "PRESENT",
+          "impact": "UNVALIDATED"
+        }
+      ],
+      "missing_conditions": [
+        "Validated zone provenance"
+      ],
+      "invalidation": {
+        "description": "Closed M5 bar below structural invalidation",
+        "level": 2395.0,
+        "evidence_refs": [
+          "EVID-SNAPSHOT-001"
+        ]
+      },
+      "stop": {
+        "price": 2394.5,
+        "basis": "HYBRID"
+      },
+      "targets": [
+        {
+          "label": "TP1",
+          "price": 2405.0,
+          "basis": "Nearest liquidity above"
+        }
+      ],
+      "rr": {
+        "minimum": 1.5,
+        "to_first_target": 2.0,
+        "calculation_basis": "Mid-entry to structural stop and TP1"
+      },
+      "entry_latency": {
+        "bars_since_first_opportunity": 0,
+        "status": "EARLY"
+      },
+      "expiry": {
+        "mode": "BARS",
+        "expires_at": null,
+        "bars_remaining": 12,
+        "event": null
+      },
+      "limit_eligibility": "LIMIT_WATCH",
+      "risk_mode": "UNASSESSED",
+      "permission_state": "APPROVED",
+      "evidence_refs": [
+        "EVID-SNAPSHOT-001"
+      ]
+    }
+  ],
+  "permission_state": "NOT_EVALUATED",
+  "evidence_refs": [
+    "EVID-SNAPSHOT-001"
+  ]
+}

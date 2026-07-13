@@ -1,0 +1,8 @@
+{
+  "snapshot_schema": "0.2.0",
+  "market_packet_schema": "0.2.0",
+  "scenario_schema": "0.2.0",
+  "entry_schema": "0.2.0",
+  "decision_core": "0.1.0",
+  "part3_policy": "PART3_POLICY_0.1.0"
+}

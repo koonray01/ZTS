@@ -1,0 +1,496 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/snapshot.schema.json",
+  "title": "Codex Trading Lab Immutable Market Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "run_id",
+    "request_id",
+    "source",
+    "symbol",
+    "terminal",
+    "capture_time",
+    "broker_time",
+    "freshness",
+    "timeframes",
+    "account_context",
+    "evidence_refs",
+    "qc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.3.0"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "source": {
+      "enum": [
+        "LIVE_MT5",
+        "REPLAY",
+        "FIXTURE"
+      ]
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "terminal_id",
+        "connected",
+        "trade_write_enabled"
+      ],
+      "properties": {
+        "terminal_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "account_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "server": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "trade_write_enabled": {
+          "const": false
+        },
+        "terminal_build": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "capture_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "broker_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "broker_utc_offset_minutes": {
+      "type": "integer",
+      "minimum": -840,
+      "maximum": 840
+    },
+    "last_tick_time": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bid", "ask", "last", "spread_points"],
+      "properties": {
+        "bid": {"type": "number", "minimum": 0},
+        "ask": {"type": "number", "minimum": 0},
+        "last": {"type": "number", "minimum": 0},
+        "spread_points": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "age_ms",
+        "stale_after_ms",
+        "reasons"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "FRESH",
+            "STALE",
+            "INCOMPLETE",
+            "MIXED_TIME",
+            "BLOCKED"
+          ]
+        },
+        "age_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_after_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "timeframes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": false,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timeframe",
+          "requested_bars",
+          "returned_bars",
+          "last_closed_bar_time",
+          "retrieved_at",
+          "bars"
+        ],
+        "properties": {
+          "timeframe": {
+            "enum": [
+              "M1",
+              "M5",
+              "M15",
+              "M30",
+              "H1",
+              "H4",
+              "D1"
+            ]
+          },
+          "requested_bars": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "returned_bars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_closed_bar_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bars": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bar_id",
+                "open_time",
+                "close_time",
+                "open",
+                "high",
+                "low",
+                "close",
+                "tick_volume",
+                "is_closed"
+              ],
+              "properties": {
+                "bar_id": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+                },
+                "open_time": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "close_time": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "open": {
+                  "type": "number"
+                },
+                "high": {
+                  "type": "number"
+                },
+                "low": {
+                  "type": "number"
+                },
+                "close": {
+                  "type": "number"
+                },
+                "tick_volume": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "real_volume": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "spread_points": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "is_closed": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "account_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "currency",
+        "balance",
+        "equity",
+        "margin_free",
+        "positions"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "AVAILABLE",
+            "UNAVAILABLE",
+            "BLOCKED"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "balance": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "equity": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "margin_free": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "position_id",
+              "symbol",
+              "side",
+              "volume",
+              "open_price",
+              "open_time"
+            ],
+            "properties": {
+              "position_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "symbol": {
+                "type": "string"
+              },
+              "side": {
+                "enum": [
+                  "BUY",
+                  "SELL"
+                ]
+              },
+              "volume": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "open_price": {
+                "type": "number"
+              },
+              "stop_loss": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "take_profit": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "open_time": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "indicator_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indicator_id",
+          "version_status",
+          "transport",
+          "evidence_refs"
+        ],
+        "properties": {
+          "indicator_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version_status": {
+            "enum": [
+              "KNOWN",
+              "UNKNOWN",
+              "MISMATCH"
+            ]
+          },
+          "transport": {
+            "enum": [
+              "BUFFER",
+              "OBJECT",
+              "HYBRID",
+              "UNRESOLVED"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+      },
+      "uniqueItems": true
+    },
+    "qc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "checks",
+        "warnings",
+        "errors"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "PASS",
+            "PASS_WITH_WARNINGS",
+            "FAIL",
+            "QUARANTINE"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "check_id",
+              "status",
+              "message"
+            ],
+            "properties": {
+              "check_id": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "PASS",
+                  "WARN",
+                  "FAIL",
+                  "NOT_RUN"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "component_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

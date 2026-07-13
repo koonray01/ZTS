@@ -1,0 +1,21 @@
+project:
+  working_name: Codex Trading Lab
+  repository_slug: codex-trading-lab
+  repository_root: ${CODEX_TRADING_LAB_ROOT}
+  version: 0.2.0-sprint0
+  contract_version: 0.2.0
+  standalone: true
+  execution_mode: manual
+  primary_symbol: XAUUSD
+  default_timeframes: [M5, M15, H1]
+  optional_context_timeframes: [H4]
+  integration_with_existing_tradingos: none
+  production_order_api_enabled: false
+  raw_evidence_policy: append_only
+  schema_draft: 2020-12
+ownership:
+  project_owner: human_project_owner
+  architecture_owner: system_architecture
+  implementation_owner: codex_under_task_contract
+  runtime_owner: python_control_plane
+  execution_owner: human_trader

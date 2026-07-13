@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_episode.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "episode_id",
+    "case_id",
+    "case_version",
+    "partition",
+    "visible_snapshot_id",
+    "submission_hash",
+    "visible_packet_hash",
+    "outcome_hash",
+    "score_hash",
+    "created_at",
+    "live_execution_credit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "episode_id": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "case_version": {
+      "type": "string"
+    },
+    "partition": {
+      "enum": [
+        "DEV",
+        "VALIDATION",
+        "LOCKED_OOS",
+        "FORWARD_SHADOW"
+      ]
+    },
+    "visible_snapshot_id": {
+      "type": "string"
+    },
+    "submission_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "visible_packet_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "outcome_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "score_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "live_execution_credit": {
+      "const": false
+    }
+  }
+}

@@ -1,0 +1,45 @@
+[
+  {
+    "turn_type": "TOOL_CALLS",
+    "tool_calls": [
+      {
+        "tool_call_id": "CALL-STATE-001",
+        "tool_name": "get_current_state",
+        "arguments": {}
+      }
+    ],
+    "usage": {
+      "input_tokens": 220,
+      "output_tokens": 40
+    }
+  },
+  {
+    "turn_type": "FINAL",
+    "final": {
+      "summary": "Market state reviewed from the deterministic compact packet.",
+      "facts": [
+        {
+          "claim": "The current packet contains three timeframe market-state records.",
+          "evidence_refs": [
+            "MARKET_PACKET_REFERENCE"
+          ]
+        }
+      ],
+      "interpretations": [
+        {
+          "claim": "The current state warrants monitoring rather than an automatic action.",
+          "evidence_refs": []
+        }
+      ],
+      "unknowns": [
+        "Live broker execution conditions are not available in this dry run."
+      ],
+      "recommended_next_action": "WAIT",
+      "permission_claim": "NOT_EVALUATED"
+    },
+    "usage": {
+      "input_tokens": 180,
+      "output_tokens": 120
+    }
+  }
+]

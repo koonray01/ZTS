@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1.0",
+  "case_id": "CASE-BULLISH-CONT-001",
+  "case_version": "0.1.0",
+  "symbol": "XAUUSD",
+  "partition": "DEV",
+  "difficulty": "INTERMEDIATE",
+  "curriculum_tags": [
+    "market_read",
+    "scenario",
+    "entry",
+    "permission"
+  ],
+  "visible_steps": [
+    {
+      "step_id": "STEP-001",
+      "snapshot_path": "visible/step_001.snapshot.json",
+      "replay_time": "2025-03-03T01:40:00Z"
+    }
+  ],
+  "hidden_outcome_path": "hidden/outcome.json",
+  "judge_key_path": "hidden/judge_key.json",
+  "locked_for_tuning": false
+}

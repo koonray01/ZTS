@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/research_item.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "research_id",
+    "title",
+    "definition_version",
+    "status",
+    "hypothesis",
+    "stream",
+    "metrics",
+    "cohort",
+    "source_refs",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "research_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "definition_version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "PROPOSED",
+        "TESTING",
+        "SUPPORTED",
+        "INCONCLUSIVE",
+        "REJECTED",
+        "DEPRECATED"
+      ]
+    },
+    "hypothesis": {
+      "type": "string"
+    },
+    "stream": {
+      "enum": [
+        "REPLAY",
+        "LIVE_SHADOW",
+        "LIVE_EXECUTION"
+      ]
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "cohort": {
+      "type": "object",
+      "required": [
+        "triggered_cases",
+        "validation_cases",
+        "locked_oos_cases"
+      ],
+      "properties": {
+        "triggered_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validation_cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locked_oos_cases": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

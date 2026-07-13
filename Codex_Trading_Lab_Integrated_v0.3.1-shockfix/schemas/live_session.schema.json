@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/live_session.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "symbol",
+    "state",
+    "created_at",
+    "updated_at",
+    "new_entries_allowed",
+    "position_monitoring_active",
+    "processed_snapshots",
+    "last_snapshot_id",
+    "active_locks",
+    "health"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "CREATED",
+        "STARTING",
+        "ACTIVE",
+        "PAUSED",
+        "LOCKED",
+        "STOPPED"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "new_entries_allowed": {
+      "type": "boolean"
+    },
+    "position_monitoring_active": {
+      "type": "boolean"
+    },
+    "processed_snapshots": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_snapshot_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active_locks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": [
+        "status",
+        "issues"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "HEALTHY",
+            "DEGRADED",
+            "CRITICAL"
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

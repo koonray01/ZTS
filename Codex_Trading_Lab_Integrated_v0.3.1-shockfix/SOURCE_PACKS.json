@@ -1,0 +1,85 @@
+{
+  "packs": [
+    {
+      "label": "bootstrap",
+      "pack_name": "Codex_Trading_Lab_Bootstrap_v0.1",
+      "source_kind": "zip_extract",
+      "file_count": 35,
+      "content_bytes": 11832,
+      "original_archive_sha256": "cb0b38f3840aa5f048a55f202cad96168bc910d654db3f6efee35d379612859f"
+    },
+    {
+      "label": "sprint_0_contracts",
+      "pack_name": "Codex_Trading_Lab_Sprint0_v0.2",
+      "source_kind": "zip_extract",
+      "file_count": 65,
+      "content_bytes": 123570,
+      "original_archive_sha256": "e7ffb8dae6d1505d9eab7ea73ecdbdfe52aa985eac24b1cb082b09640ac93897"
+    },
+    {
+      "label": "sprint_2_basic_eyes",
+      "pack_name": "Codex_Trading_Lab_Eyes_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 39,
+      "content_bytes": 180606,
+      "original_archive_sha256": "0592de752742ac9c79a52d9dd3690cfe498540ab65e7d163119559624b99abf4"
+    },
+    {
+      "label": "sprint_3_advanced_eyes",
+      "pack_name": "Codex_Trading_Lab_Advanced_Eyes_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 48,
+      "content_bytes": 151338,
+      "original_archive_sha256": "1a399a62d973bc1825d08592d6d8adc5fdf2d42fc6aa6838f682e1b29a06c696"
+    },
+    {
+      "label": "sprint_4_decision_core",
+      "pack_name": "Codex_Trading_Lab_Decision_Core_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 67,
+      "content_bytes": 494206,
+      "original_archive_sha256": "d28ae6b44a569ce1c9d136e1afa1a849fdd7944883b8b71ef220ad918b4ae9a0"
+    },
+    {
+      "label": "sprint_5_permission_agent",
+      "pack_name": "Codex_Trading_Lab_Permission_Agent_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 98,
+      "content_bytes": 436857,
+      "original_archive_sha256": "39873336a8c4f3e862c0696375f1b10cbb3dee7a4d97544f2b30a2c340c74175"
+    },
+    {
+      "label": "sprint_6_live_runtime",
+      "pack_name": "Codex_Trading_Lab_Live_Runtime_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 121,
+      "content_bytes": 1554329,
+      "original_archive_sha256": "25117f7e4a146c8cbaec63d951d3fa65c20ca4e55998fc8c367f6856ed74a320"
+    },
+    {
+      "label": "sprint_7_replay_training",
+      "pack_name": "Codex_Trading_Lab_Replay_Training_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 154,
+      "content_bytes": 787572,
+      "original_archive_sha256": "b468169da2dbd9f23ddebc2d785654a33d3d29decb9e38db62a6d9e63b00a4d5"
+    },
+    {
+      "label": "sprint_8_knowledge_learning",
+      "pack_name": "Codex_Trading_Lab_Knowledge_Learning_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 163,
+      "content_bytes": 504919,
+      "original_archive_sha256": "aa70dd7ba0d345f55f4b0ba7dadf09182051960493f43c1668bf5353995b40bb"
+    },
+    {
+      "label": "sprint_9_codex_worker",
+      "pack_name": "Codex_Trading_Lab_Codex_Worker_Prep_v0.1",
+      "source_kind": "directory_copy",
+      "file_count": 182,
+      "content_bytes": 1011965,
+      "original_archive_sha256": "4b247fbdf5784988c13d2bcab5e41a2f997059aa53571ad164e9543fd64e8ca2"
+    }
+  ],
+  "example_conflicts": []
+}

@@ -1,0 +1,15 @@
+project:
+  id: codex-trading-lab
+  name: Codex Trading Lab
+  version: 0.1.0
+  standalone_from_tradingos: true
+  integration_status: prepared_not_live_integrated
+safety:
+  manual_execution_only: true
+  auto_execution_enabled: false
+  arbitrary_shell_enabled: false
+  production_policy_auto_mutation: false
+runtime:
+  primary_symbol: XAUUSD
+  real_mt5_connected: false
+  live_model_provider_connected: false

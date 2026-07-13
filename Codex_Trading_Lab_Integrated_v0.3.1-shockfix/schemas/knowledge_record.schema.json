@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/knowledge_record.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "record_type",
+    "trust_tier",
+    "status",
+    "version",
+    "stream",
+    "source_refs",
+    "payload",
+    "created_at",
+    "previous_record_hash",
+    "record_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "record_id": {
+      "type": "string"
+    },
+    "record_type": {
+      "enum": [
+        "EVIDENCE",
+        "EPISODE",
+        "OBSERVATION",
+        "HYPOTHESIS",
+        "EXPERIMENT",
+        "RESEARCH_FINDING",
+        "VALIDATED_FINDING",
+        "CANDIDATE_RULE",
+        "APPROVED_POLICY",
+        "SKILL_UPDATE_PROPOSAL",
+        "CHANGE_PROPOSAL"
+      ]
+    },
+    "trust_tier": {
+      "enum": [
+        "LOCKED_CANONICAL_POLICY",
+        "DETERMINISTIC_CHECKER",
+        "VALIDATED_EVIDENCE",
+        "VALIDATED_RESEARCH",
+        "EPISODE_OBSERVATION",
+        "AI_INTERPRETATION",
+        "HYPOTHESIS"
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "stream": {
+      "enum": [
+        "REPLAY",
+        "LIVE_SHADOW",
+        "LIVE_EXECUTION",
+        "SYSTEM"
+      ]
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "payload": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "previous_record_hash": {
+      "type": "string"
+    },
+    "record_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

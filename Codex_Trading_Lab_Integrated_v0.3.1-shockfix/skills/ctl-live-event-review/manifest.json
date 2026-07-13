@@ -1,0 +1,14 @@
+{
+  "skill_id": "ctl-live-event-review",
+  "version": "0.1.0",
+  "allowed_tools": [
+    "get_current_state",
+    "list_entry_candidates",
+    "build_codex_job"
+  ],
+  "dependencies": {
+    "part3_policy": "PART3_POLICY_0.1.0",
+    "decision_core": "0.1.0"
+  },
+  "manual_execution_only": true
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observation_id", "symbol", "capture_time", "broker_utc_offset_minutes", "candle_state", "price_tolerance", "timeframes"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "observation_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"},
+    "symbol": {"type": "string"},
+    "capture_time": {"type": "string", "format": "date-time"},
+    "broker_utc_offset_minutes": {"type": "integer", "minimum": -840, "maximum": 840},
+    "candle_state": {"enum": ["FORMING", "CLOSED", "MIXED", "UNKNOWN"]},
+    "price_tolerance": {"type": "number", "exclusiveMinimum": 0},
+    "timeframes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["timeframe", "structure", "recent_leg", "zones"],
+        "properties": {
+          "timeframe": {"enum": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]},
+          "visible_price": {"type": ["number", "null"]},
+          "structure": {"type": "object", "additionalProperties": false, "required": ["internal", "external"], "properties": {"internal": {"enum": ["BULLISH", "BEARISH", "RANGE", "TRANSITION", "UNKNOWN"]}, "external": {"enum": ["BULLISH", "BEARISH", "RANGE", "TRANSITION", "UNKNOWN"]}}},
+          "recent_leg": {"enum": ["BULLISH_IMPULSE", "BEARISH_IMPULSE", "BULLISH_ROTATION", "BEARISH_ROTATION", "BULLISH_PULLBACK", "BEARISH_PULLBACK", "COMPRESSION", "UNKNOWN"]},
+          "zones": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["zone_type", "lower", "upper"], "properties": {"zone_type": {"enum": ["SUPPORT", "RESISTANCE", "DEMAND", "SUPPLY", "ROLE_FLIP", "OTHER"]}, "lower": {"type": "number"}, "upper": {"type": "number"}}}}
+        }
+      }
+    }
+  }
+}

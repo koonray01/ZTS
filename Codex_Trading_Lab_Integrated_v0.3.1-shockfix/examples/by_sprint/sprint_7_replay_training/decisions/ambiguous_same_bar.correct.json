@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1.0",
+  "submission_id": "SUB-CASE-AMBIGUOUS-001-CORRECT",
+  "case_id": "CASE-AMBIGUOUS-001",
+  "step_id": "STEP-001",
+  "snapshot_id": "SNAP-DIRECTIONAL-MARKET-001",
+  "market_read": {
+    "direction": "BULLISH",
+    "phase": "IMPULSE",
+    "volatility": "NORMAL"
+  },
+  "selected_scenario_id": null,
+  "action": "WAIT",
+  "selected_candidate_id": null,
+  "permission_claim": "WAIT",
+  "management_plan": {
+    "initial_stop_defined": true,
+    "target_defined": true,
+    "widen_stop_allowed": false,
+    "add_to_loser_allowed": false
+  },
+  "evidence_refs": [
+    "EVID-DIRECTIONAL-MARKET-001",
+    "SR_M5_001",
+    "BAR-M5-0007"
+  ],
+  "submitted_at": "2025-03-03T01:40:00Z",
+  "entry_origin": "NO_ENTRY"
+}

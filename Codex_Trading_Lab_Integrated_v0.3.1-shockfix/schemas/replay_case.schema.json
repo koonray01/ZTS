@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/replay_case.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "case_version",
+    "symbol",
+    "partition",
+    "difficulty",
+    "curriculum_tags",
+    "visible_steps",
+    "hidden_outcome_path",
+    "judge_key_path",
+    "locked_for_tuning"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "case_version": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "partition": {
+      "enum": [
+        "DEV",
+        "VALIDATION",
+        "LOCKED_OOS",
+        "FORWARD_SHADOW"
+      ]
+    },
+    "difficulty": {
+      "enum": [
+        "FOUNDATION",
+        "INTERMEDIATE",
+        "ADVANCED",
+        "ADVERSARIAL"
+      ]
+    },
+    "curriculum_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "visible_steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "step_id",
+          "snapshot_path",
+          "replay_time"
+        ],
+        "properties": {
+          "step_id": {
+            "type": "string"
+          },
+          "snapshot_path": {
+            "type": "string"
+          },
+          "replay_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stage": {
+            "enum": [
+              "T0",
+              "T1",
+              "T2",
+              "T3"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hidden_outcome_path": {
+      "type": "string"
+    },
+    "judge_key_path": {
+      "type": "string"
+    },
+    "locked_for_tuning": {
+      "type": "boolean"
+    }
+  }
+}

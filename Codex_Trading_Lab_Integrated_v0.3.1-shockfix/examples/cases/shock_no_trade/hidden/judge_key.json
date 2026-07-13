@@ -1,0 +1,10 @@
+{
+  "expected_market_read": {
+    "direction": "TRANSITION",
+    "phase": "EXPANSION",
+    "volatility": "SHOCK"
+  },
+  "expected_action": "NO_TRADE",
+  "preferred_scenario_ids": [],
+  "preferred_entry_types": []
+}

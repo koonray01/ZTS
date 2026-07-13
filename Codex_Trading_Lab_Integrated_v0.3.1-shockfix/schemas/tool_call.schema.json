@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/tool_call.schema.json",
+  "title": "Allowlisted Tool Call",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tool_call_id",
+    "tool_name",
+    "arguments"
+  ],
+  "properties": {
+    "tool_call_id": {
+      "type": "string"
+    },
+    "tool_name": {
+      "enum": [
+        "get_current_state",
+        "list_entry_candidates",
+        "run_part3",
+        "explain_decision",
+        "build_manual_execution_proposal",
+        "inspect_evidence_refs",
+        "build_codex_job"
+      ]
+    },
+    "arguments": {
+      "type": "object"
+    }
+  }
+}

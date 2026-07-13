@@ -1,0 +1,616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/market_packet.schema.json",
+  "title": "Codex Trading Lab Compact Market Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "market_packet_id",
+    "run_id",
+    "snapshot_id",
+    "symbol",
+    "profile",
+    "generated_at",
+    "data_quality",
+    "market_state",
+    "location",
+    "active_zones",
+    "zone_summary",
+    "liquidity",
+    "confirmed_events",
+    "missing_events",
+    "opportunities",
+    "risk_flags",
+    "conflicts",
+    "unknowns",
+    "permission_state",
+    "evidence_refs",
+    "component_versions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "market_packet_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "profile": {
+      "enum": [
+        "QUICK",
+        "STANDARD",
+        "DEEP",
+        "PART3",
+        "REPLAY"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "freshness", "qc_decision", "terminal_connected"],
+      "properties": {
+        "source": {"enum": ["LIVE_MT5", "REPLAY", "FIXTURE"]},
+        "freshness": {"enum": ["FRESH", "STALE", "INCOMPLETE", "MIXED_TIME", "BLOCKED"]},
+        "qc_decision": {"enum": ["PASS", "PASS_WITH_WARNINGS", "FAIL", "QUARANTINE"]},
+        "terminal_connected": {"type": "boolean"}
+      }
+    },
+    "market_state": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timeframe",
+          "structure",
+          "regime",
+          "recent_leg",
+          "phase",
+          "volatility",
+          "evidence_refs"
+        ],
+        "properties": {
+          "timeframe": {
+            "enum": [
+              "M1",
+              "M5",
+              "M15",
+              "M30",
+              "H1",
+              "H4",
+              "D1"
+            ]
+          },
+          "structure": {
+            "enum": [
+              "BULLISH",
+              "BEARISH",
+              "RANGE",
+              "TRANSITION",
+              "UNKNOWN"
+            ]
+          },
+          "regime": {
+            "enum": ["TREND", "RANGE", "TRANSITION", "UNKNOWN"]
+          },
+          "recent_leg": {
+            "enum": [
+              "BULLISH_IMPULSE", "BEARISH_IMPULSE",
+              "BULLISH_ROTATION", "BEARISH_ROTATION",
+              "BULLISH_PULLBACK", "BEARISH_PULLBACK",
+              "COMPRESSION", "UNKNOWN"
+            ]
+          },
+          "phase": {
+            "enum": [
+              "IMPULSE",
+              "PULLBACK",
+              "COMPRESSION",
+              "EXPANSION",
+              "REVERSAL_CANDIDATE",
+              "BALANCED",
+              "UNKNOWN"
+            ]
+          },
+          "volatility": {
+            "enum": [
+              "LOW",
+              "NORMAL",
+              "HIGH",
+              "SHOCK",
+              "UNKNOWN"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "labels",
+        "structural_reference_price",
+        "live_bid",
+        "live_ask",
+        "live_mid",
+        "evidence_refs"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "KNOWN",
+            "PARTIAL",
+            "UNKNOWN"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reference_price": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "structural_reference_price": {
+          "type": ["number", "null"]
+        },
+        "live_bid": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "live_ask": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "live_mid": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "active_zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "zone_id",
+          "zone_type",
+          "lower",
+          "upper",
+          "status",
+          "freshness",
+          "evidence_refs"
+        ],
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "timeframe": {
+            "enum": [
+              "M1",
+              "M5",
+              "M15",
+              "M30",
+              "H1",
+              "H4",
+              "D1"
+            ]
+          },
+          "zone_type": {
+            "enum": [
+              "SUPPORT",
+              "RESISTANCE",
+              "DEMAND",
+              "SUPPLY",
+              "ROLE_FLIP",
+              "OTHER"
+            ]
+          },
+          "lower": {
+            "type": "number"
+          },
+          "upper": {
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "TOUCHED",
+              "DEGRADED",
+              "INVALIDATED",
+              "EXPIRED"
+            ]
+          },
+          "freshness": {
+            "enum": [
+              "FRESH",
+              "USED",
+              "HEAVILY_USED",
+              "UNKNOWN"
+            ]
+          },
+          "available_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "source_type": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "zone_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_total", "active_observed_total", "working_total", "per_timeframe_limit"],
+      "properties": {
+        "observed_total": {"type": "integer", "minimum": 0},
+        "active_observed_total": {"type": "integer", "minimum": 0},
+        "working_total": {"type": "integer", "minimum": 0},
+        "per_timeframe_limit": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "liquidity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nearest_above",
+        "nearest_below",
+        "pools",
+        "evidence_refs"
+      ],
+      "properties": {
+        "nearest_above": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "nearest_below": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pool_id",
+              "kind",
+              "lower",
+              "upper",
+              "status",
+              "evidence_refs"
+            ],
+            "properties": {
+              "pool_id": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+              },
+              "timeframe": {
+                "enum": [
+                  "M1",
+                  "M5",
+                  "M15",
+                  "M30",
+                  "H1",
+                  "H4",
+                  "D1"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "EQUAL_HIGH",
+                  "EQUAL_LOW",
+                  "PREVIOUS_HIGH",
+                  "PREVIOUS_LOW",
+                  "RANGE_HIGH",
+                  "RANGE_LOW",
+                  "SESSION_HIGH",
+                  "SESSION_LOW",
+                  "OTHER"
+                ]
+              },
+              "lower": {
+                "type": "number"
+              },
+              "upper": {
+                "type": "number"
+              },
+              "status": {
+                "enum": [
+                  "ACTIVE",
+                  "SWEPT",
+                  "INVALIDATED",
+                  "UNKNOWN"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "confirmed_events": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+      },
+      "uniqueItems": true
+    },
+    "missing_events": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "opportunities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "opportunity_id",
+          "setup_family",
+          "status",
+          "direction",
+          "evidence_refs"
+        ],
+        "properties": {
+          "opportunity_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "setup_family": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "WATCH",
+              "ARMED",
+              "READY_FOR_ENTRY_EVALUATION",
+              "DEGRADED",
+              "INVALIDATED"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "BUY",
+              "SELL",
+              "BOTH",
+              "UNRESOLVED"
+            ]
+          },
+          "timeframe": {
+            "enum": [
+              "M1",
+              "M5",
+              "M15",
+              "M30",
+              "H1",
+              "H4",
+              "D1"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "severity",
+          "message",
+          "evidence_refs"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "INFO",
+              "WARN",
+              "BLOCK"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conflict_id",
+          "components",
+          "message",
+          "blocking"
+        ],
+        "properties": {
+          "conflict_id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+          },
+          "components": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "blocking"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "permission_state": {
+      "const": "NOT_EVALUATED"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]{2,127}$"
+      },
+      "uniqueItems": true
+    },
+    "component_versions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "compactness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "raw_bars_embedded"
+      ],
+      "properties": {
+        "profile": {
+          "type": "string"
+        },
+        "raw_bars_embedded": {
+          "const": false
+        },
+        "estimated_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
