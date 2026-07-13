@@ -23,8 +23,10 @@ Part 3 is called once for a semantic Candidate only after it is `READY_FOR_PERMI
 
 Session 3 procedure:
 
-1. Run 120 snapshots at 60-second cadence with `--restart-after-snapshot 40`.
+1. Run 120 snapshots at 60-second cadence with `--runtime-reinitialize-after-snapshot 40`. This validates persisted runtime-state reload inside the same CLI process.
 2. During the session, perform one operator-controlled MT5 connectivity interruption and restoration. The harness may retry one transient unavailable capture and records both attempt and success.
 3. Bundle evidence only after the report confirms zero order actions, zero permission leakage and zero unexplained integrity errors.
 
 Acceptance is not a Candidate-count target. A zero Part 3 request is acceptable only when `part3_not_requested_reason` accounts for every Candidate instance and no eligible Candidate was silently skipped.
+
+An operating-system process stop and resume remains a separate, unvalidated gate. The CLI does not yet resume a partially completed run, so this Session 3 option must not be reported as process restart recovery.

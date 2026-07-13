@@ -140,8 +140,8 @@ def test_evidence_append_only_collision_and_path_traversal(tmp_path):
         store.write_raw_snapshot(unsafe)
 
 
-def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
-    report = run_integration_harness(output_root=tmp_path, iterations=3, restart_after_snapshot=1)
+def test_full_pipeline_identity_harness_and_runtime_reinitialization_recovery(tmp_path):
+    report = run_integration_harness(output_root=tmp_path, iterations=3, runtime_reinitialize_after_snapshot=1)
     assert report["final_decision"] == "CONDITIONAL_GO_PENDING_REAL_MT5"
     assert report["snapshots_processed"] == 3
     assert report["unique_market_state_hashes"] >= 1
@@ -177,8 +177,8 @@ def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
     assert report["candidate_count"] >= 0
     assert report["unique_candidate_ids"] <= report["candidate_count"]
     assert report["new_candidates_created"] + report["candidates_carried_forward"] == report["candidate_count"]
-    assert report["restart_attempts"] == 1
-    assert report["restart_recoveries"] == 1
+    assert report["runtime_reinitializations"] == 1
+    assert report["runtime_reinitialization_recoveries"] == 1
     assert report["part3_requests"] == 0
     assert report["part3_not_requested_reason"]
     assert report["paused_position_monitoring_active"] is True

@@ -288,7 +288,7 @@ def run_integration_harness(
     run_id: str = "RUN-SPRINT10-FIXTURE",
     interval_seconds: float = 0,
     max_snapshot_elapsed_seconds: float = 300,
-    restart_after_snapshot: int | None = None,
+    runtime_reinitialize_after_snapshot: int | None = None,
     max_reconnect_attempts: int = 0,
 ) -> dict[str, Any]:
     output_root = Path(output_root)
@@ -368,8 +368,8 @@ def run_integration_harness(
     stage_timeouts = 0
     timeout_categories: dict[str, int] = {}
     manual_termination = False
-    restart_attempts = 0
-    restart_recoveries = 0
+    runtime_reinitializations = 0
+    runtime_reinitialization_recoveries = 0
     reconnect_attempts = 0
     reconnect_successes = 0
 
@@ -536,13 +536,13 @@ def run_integration_harness(
             "accepted_significant_events": len(watcher["accepted_significant_events"]),
             "runtime_jobs": len(runtime_report["jobs_created"]),
         })
-        if restart_after_snapshot is not None and index + 1 == restart_after_snapshot and index + 1 < iterations:
-            restart_attempts += 1
+        if runtime_reinitialize_after_snapshot is not None and index + 1 == runtime_reinitialize_after_snapshot and index + 1 < iterations:
+            runtime_reinitializations += 1
             prior_snapshot_id = runtime.session.state["last_snapshot_id"]
             runtime = LiveRuntime(output_root / "runtime", symbol)
             runtime.start(now=runtime_now)
             if runtime.session.state["last_snapshot_id"] == prior_snapshot_id and runtime.session.state["state"] == "ACTIVE":
-                restart_recoveries += 1
+                runtime_reinitialization_recoveries += 1
         if elapsed_seconds > max_snapshot_elapsed_seconds:
             stopped_reason = f"SNAPSHOT_STAGE_TIMEOUT:{snapshot['snapshot_id']}:{elapsed_seconds:.3f}s"
             stage_timeouts += 1
@@ -614,8 +614,8 @@ def run_integration_harness(
         "duplicate_jobs": 0,
         "identical_state_worker_invocations": 0 if len(set(market_hashes)) == len(market_hashes) or len(worker_reports) == 0 else max(0, len(worker_reports) - len(set(market_hashes))),
         "quarantine_records": 0,
-        "restart_attempts": restart_attempts,
-        "restart_recoveries": restart_recoveries,
+        "runtime_reinitializations": runtime_reinitializations,
+        "runtime_reinitialization_recoveries": runtime_reinitialization_recoveries,
         "reconnect_attempts": reconnect_attempts,
         "reconnect_successes": reconnect_successes,
         "closed_bar_violations": 0,
