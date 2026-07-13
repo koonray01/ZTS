@@ -22,5 +22,5 @@ Status: `NOT_GO_LIVE_READY`
 | No auto execution | YES | YES | YES | YES | YES | CLEAR_FOR_EXTENDED_SHADOW | auto_execution_enabled=false |
 | Audit reproducibility | YES | YES | YES | YES | YES | CLEAR_FOR_EXTENDED_SHADOW | no audit errors |
 | Stream separation | YES | YES | YES | YES | YES | CLEAR_FOR_EXTENDED_SHADOW | no fixture/live metric merge |
-| Release integrity | PENDING | N/A | N/A | N/A | NO | BLOCKING_RELEASE | v0.3.0 artifact not prepared yet |
+| Release integrity | YES | N/A | N/A | N/A | YES | CLEAR_FOR_READINESS_ARTIFACT | v0.3.0-readiness artifact prepared; evidence bundle separate |
 | Operator runbook | YES | NOT TESTED | NOT TESTED | NOT TESTED | YES | BLOCKING_GO_LIVE | Draft runbooks added; operator drill and human approval pending |

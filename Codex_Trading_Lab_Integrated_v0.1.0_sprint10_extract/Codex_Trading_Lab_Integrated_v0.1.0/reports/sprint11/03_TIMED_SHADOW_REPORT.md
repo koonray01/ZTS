@@ -70,8 +70,8 @@ This validates the timed real MT5 shadow runtime stability and safety gates for 
 |---|---:|---|
 | `python -m pytest tests/test_sprint10_snapshot_harness.py -q` | 0 | 9 passed |
 | `python -m pytest -q` | 0 | 42 passed |
-| `python tools/run_all_validation.py --output outputs/sprint11_validation_after_timed_shadow` | 2 | Failed due output/state reuse in validation output path |
-| `python tools/run_all_validation.py --output outputs/sprint11_validation_after_timed_shadow_fresh2` | 0 | 9 checks passed |
+| `python tools/run_all_validation.py --output outputs/sprint11_validation_final_fresh` | 2 | Failed due output/state reuse in validation output path |
+| `python tools/run_all_validation.py --output outputs/sprint11_validation_final_unique_20260713_095925` | 0 | 9 checks passed |
 | `python tools/bundle_sprint10_evidence.py --evidence-root outputs/sprint11_real_forward_shadow_2h/evidence --output outputs/sprint11_real_forward_shadow_2h/evidence_bundle.zip` | 0 | Evidence bundle created |
 
-The failed validation run was classified as output/state reuse, not a code regression. A fresh output directory passed all integrated checks.
+The failed validation run was classified as output/state reuse, not a code regression. A unique output directory passed all integrated checks.
