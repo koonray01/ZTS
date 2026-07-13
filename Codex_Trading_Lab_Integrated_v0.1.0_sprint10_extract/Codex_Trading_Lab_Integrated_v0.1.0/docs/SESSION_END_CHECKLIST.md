@@ -1,13 +1,19 @@
 # Session End Checklist
 
-- Confirm process completed or record termination reason.
-- Confirm requested and completed snapshot counts.
-- Confirm stage timeouts and unexplained stalls.
-- Confirm order actions are zero.
-- Confirm permission leakage is zero.
-- Confirm evidence manifests are present.
-- Bundle evidence separately from release artifacts.
-- Record candidate count and suppression reasons.
-- Record Part 3 requests and decisions.
-- Record known limitations.
-- Do not mark production ready without explicit human approval.
+Status: `DRAFT`
+
+- [ ] Confirm command completed or was intentionally stopped.
+- [ ] Confirm final report exists.
+- [ ] Confirm completed snapshot count.
+- [ ] Confirm order actions equal 0.
+- [ ] Confirm permission leakage equals 0.
+- [ ] Confirm stage timeouts.
+- [ ] Confirm unexplained stalls.
+- [ ] Confirm evidence raw manifest count.
+- [ ] Confirm diagnostics file count.
+- [ ] Bundle evidence.
+- [ ] Record candidate count.
+- [ ] Record Part 3 request count.
+- [ ] Record known limitations.
+- [ ] Keep release artifact separate from evidence bundle.
+- [ ] Do not mark go-live without explicit human approval.

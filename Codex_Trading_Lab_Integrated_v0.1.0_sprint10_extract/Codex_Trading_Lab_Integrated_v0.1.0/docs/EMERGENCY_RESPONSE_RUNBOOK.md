@@ -1,39 +1,53 @@
 # Emergency Response Runbook
 
-Status: `DRAFT_NOT_APPROVED`
+Status: `DRAFT`
 
-## Pause
+Use this when runtime stability, evidence integrity or permission integrity is uncertain.
 
-Use emergency pause when evidence is delayed, MT5 connectivity is unstable, candidate identity is unclear, or operator review is interrupted.
+## Immediate Pause Conditions
 
-Expected behavior:
+Pause and stop relying on new output if any of these occur:
 
-- No new Part 3 request should be created.
-- Position monitoring may continue read-only.
-- Evidence remains append-only.
+- `order_actions > 0`
+- trade-write flag is unexpectedly enabled
+- auto-execution flag is unexpectedly enabled
+- permission leakage detected
+- stage timeout
+- unexplained stall
+- hash mismatch
+- evidence collision not quarantined
+- terminal identity changes unexpectedly
+- account identity changes unexpectedly
+- snapshot source changes unexpectedly
 
-## Lock
+## Emergency Lock Conditions
 
-Use emergency lock for permission ambiguity, suspected evidence corruption, unexpected worker behavior or any safety concern.
+Lock the session for human review if:
 
-Expected behavior:
+- a Worker fabricates `APPROVED`
+- Part 3 identity mismatches the current snapshot
+- candidate expiry is uncertain
+- shock state is active and policy is unclear
+- diagnostics heartbeat stops moving
+- output path was reused accidentally
 
-- New permission flow is blocked.
-- Existing approval cannot be reused.
-- Manual operator must review before resume.
+## Response Steps
 
-## Safety Incident
+1. Do not place or modify any broker order from system output.
+2. Stop the current command if it is still running.
+3. Preserve the output directory.
+4. Bundle evidence if the evidence tree is readable.
+5. Record the latest diagnostics file.
+6. Record the latest stdout/stderr.
+7. Mark the run not accepted.
+8. Start the next run only with a fresh output directory.
 
-If any trade-write API or auto execution path is detected:
+## Evidence Bundle
 
-1. Stop affected work.
-2. Record exact file and line.
-3. Mark `CRITICAL_SAFETY_REGRESSION`.
-4. Do not weaken tests or guards.
+```powershell
+python tools/bundle_sprint10_evidence.py --evidence-root outputs/<run>/evidence --output outputs/<run>/evidence_bundle.zip
+```
 
-## Recovery
+## Safety Rule
 
-1. Preserve evidence bundle.
-2. Preserve logs and diagnostics.
-3. Restart only after static safety scan passes.
-4. Re-run timed canary before any longer session.
+No emergency procedure may weaken deterministic safety guards or convert UNKNOWN into PASS.

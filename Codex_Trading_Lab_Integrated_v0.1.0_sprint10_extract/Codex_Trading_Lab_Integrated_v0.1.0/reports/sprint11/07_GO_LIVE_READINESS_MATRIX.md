@@ -23,4 +23,4 @@ Status: `NOT_GO_LIVE_READY`
 | Audit reproducibility | YES | YES | YES | YES | YES | CLEAR_FOR_EXTENDED_SHADOW | no audit errors |
 | Stream separation | YES | YES | YES | YES | YES | CLEAR_FOR_EXTENDED_SHADOW | no fixture/live metric merge |
 | Release integrity | PENDING | N/A | N/A | N/A | NO | BLOCKING_RELEASE | v0.3.0 artifact not prepared yet |
-| Operator runbook | PENDING | N/A | N/A | N/A | NO | BLOCKING_GO_LIVE | Sprint 11 docs pending |
+| Operator runbook | YES | NOT TESTED | NOT TESTED | NOT TESTED | YES | BLOCKING_GO_LIVE | Draft runbooks added; operator drill and human approval pending |

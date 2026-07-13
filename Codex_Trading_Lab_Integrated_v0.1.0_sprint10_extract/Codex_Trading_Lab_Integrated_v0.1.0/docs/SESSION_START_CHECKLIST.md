@@ -1,14 +1,19 @@
 # Session Start Checklist
 
-- Confirm execution mode: `MANUAL_ONLY`.
-- Confirm `trade_write_enabled=false`.
-- Confirm `auto_execution_enabled=false`.
-- Confirm MT5 terminal connected.
-- Confirm account identity is expected and masked in evidence.
-- Confirm broker server is expected.
-- Confirm symbol is synchronized.
-- Confirm M5/M15/H1 closed bars are available.
-- Confirm evidence output path is new for this run.
-- Run timed canary before extended shadow.
-- Confirm canary has zero order actions and zero permission leakage.
-- Start longer shadow only if canary passes.
+Status: `DRAFT`
+
+- [ ] Confirm correct repository root.
+- [ ] Confirm correct branch and commit.
+- [ ] Confirm fresh output directory.
+- [ ] Confirm MT5 terminal is open and connected.
+- [ ] Confirm symbol is synchronized.
+- [ ] Confirm account identity is expected and masked in outputs.
+- [ ] Confirm `trade_write_enabled=false`.
+- [ ] Confirm `auto_execution_enabled=false`.
+- [ ] Confirm manual-only Part 3 semantics.
+- [ ] Run timed canary.
+- [ ] Confirm canary accepted.
+- [ ] Confirm canary order actions equal 0.
+- [ ] Confirm canary stage timeouts equal 0.
+- [ ] Confirm diagnostics heartbeat files are written.
+- [ ] Start timed shadow or session run.
