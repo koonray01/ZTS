@@ -1,6 +1,6 @@
 # Sprint 11 Final Decision
 
-Final Decision: `CONDITIONAL_GO_REAL_PART3_PATH_PENDING`
+Final Decision: `CONDITIONAL_GO_RECONNECT_AND_PROCESS_RESTART_PENDING`
 
 Basis:
 
@@ -16,10 +16,10 @@ Basis:
 - Candidate suppression explained ratio: 100%
 - Shock detector audit: `SHOCK_BEHAVIOR_CONFIRMED_REAL` in session 2
 - Real Candidate path: OBSERVED, 90 candidates in the freshness-fix canary and 1080 in session 2
-- Real Part 3 path: NOT EXERCISED
+- Real Part 3 path: EXERCISED in Session 3, 21 LIVE_MT5-origin requests and 21 manual-only APPROVED decisions
 - Extended shadow: IN PROGRESS, 260 real timed snapshots so far
 
-This decision permits Session 3 with candidate lifecycle metrics, restart/reconnect validation and real Part 3 gating. It does not permit go-live.
+This decision permits a reconnect drill, true process stop/resume validation and the remaining operator-readiness work. It does not permit go-live.
 
 Do not use:
 
