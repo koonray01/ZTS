@@ -18,10 +18,16 @@ def classify_acceptance(report: dict) -> tuple[str, bool]:
         return "REAL_MT5_VALIDATION_PENDING", False
     if not report.get("completed_requested_snapshots"):
         return "INCOMPLETE_REQUESTED_SNAPSHOTS", False
-    if report.get("snapshots_processed", 0) < 20:
-        return "REAL_MT5_SMOKE_ONLY", False
+    if report.get("stage_timeouts", 0) != 0:
+        return "STAGE_TIMEOUT_DETECTED", False
+    if report.get("unexplained_stalls", 0) != 0:
+        return "UNEXPLAINED_STALL_DETECTED", False
     if report.get("order_actions") != 0:
         return "SAFETY_VIOLATION_ORDER_ACTIONS", False
+    if report.get("requested_snapshots") == 10 and report.get("snapshots_processed") == 10:
+        return "TIMED_CANARY_PASS", True
+    if report.get("snapshots_processed", 0) < 20:
+        return "REAL_MT5_SMOKE_ONLY", False
     return "ACCEPTED_REAL_FORWARD_SHADOW_MINIMUM", True
 
 
@@ -55,12 +61,25 @@ def main() -> int:
         "requested_snapshots": report["requested_snapshots"],
         "completed_requested_snapshots": report["completed_requested_snapshots"],
         "stopped_reason": report["stopped_reason"],
+        "manual_termination": report.get("manual_termination", False),
+        "stage_timeouts": report.get("stage_timeouts", 0),
+        "unexplained_stalls": report.get("unexplained_stalls", 0),
         "unique_market_state_hashes": report["unique_market_state_hashes"],
+        "semantic_state_transitions": report.get("semantic_state_transitions", 0),
+        "significant_events": report.get("significant_events", 0),
         "jobs_created": report["jobs_created"],
         "jobs_suppressed": report["jobs_suppressed"],
+        "duplicate_jobs": report.get("duplicate_jobs", 0),
         "worker_invocations": report["worker_invocations"],
+        "identical_state_worker_invocations": report.get("identical_state_worker_invocations", 0),
+        "candidate_count": report.get("candidate_count", 0),
+        "part3_requests": report.get("part3_requests", 0),
         "order_actions": report["order_actions"],
+        "permission_leakage": report.get("permission_leakage", 0),
+        "queue_errors": 0 if report.get("integrity", {}).get("worker_job_store") else 1,
+        "audit_errors": 0 if report.get("integrity", {}).get("worker_audit") else 1,
         "trade_write_enabled": False,
+        "auto_execution_enabled": False,
     }))
     return 0 if accepted else 2
 

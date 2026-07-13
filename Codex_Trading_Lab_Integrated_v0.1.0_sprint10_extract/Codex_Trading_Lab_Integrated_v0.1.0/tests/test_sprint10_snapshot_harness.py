@@ -102,15 +102,25 @@ def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
     assert set(report["candidate_suppression_breakdown"]) == {
         "NO_VALID_LOCATION",
         "NO_ACTIVE_ZONE",
+        "NO_OPPORTUNITY",
+        "SCENARIO_NOT_READY",
         "TRIGGER_PENDING",
         "RR_BELOW_MINIMUM",
-        "SHOCK_BLOCK",
         "CONFLICT_BLOCK",
-        "STALE_OR_QC_BLOCK",
-        "SCENARIO_NOT_READY",
+        "SHOCK_BLOCK",
+        "SNAPSHOT_QC_BLOCK",
+        "STALE_DATA_BLOCK",
+        "REQUIRED_INPUT_UNKNOWN",
         "LIMIT_NOT_ELIGIBLE",
-        "UNKNOWN_REQUIRED_INPUT",
+        "ENTRY_EXPIRED",
+        "STRUCTURE_NOT_CONFIRMED",
+        "SETUP_FAMILY_NOT_READY",
+        "POLICY_BLOCK",
+        "OTHER_EXPLICIT_REASON",
     }
+    assert report["stage_timeouts"] == 0
+    assert report["manual_termination"] is False
+    assert report["completed_snapshots"] == 3
     assert report["opportunity_count"] >= 3
     assert report["candidate_count"] >= 0
     assert report["paused_position_monitoring_active"] is True
@@ -150,6 +160,9 @@ def test_forward_shadow_acceptance_classification(root):
 
     smoke = dict(base, snapshots_processed=3)
     assert run_forward_shadow.classify_acceptance(smoke) == ("REAL_MT5_SMOKE_ONLY", False)
+
+    canary = dict(base, requested_snapshots=10, snapshots_processed=10)
+    assert run_forward_shadow.classify_acceptance(canary) == ("TIMED_CANARY_PASS", True)
 
     stalled = dict(base, stopped_reason="SNAPSHOT_STAGE_TIMEOUT:RUN:301.0s")
     assert run_forward_shadow.classify_acceptance(stalled) == ("TIMED_SHADOW_INTERRUPTED_STALL", False)

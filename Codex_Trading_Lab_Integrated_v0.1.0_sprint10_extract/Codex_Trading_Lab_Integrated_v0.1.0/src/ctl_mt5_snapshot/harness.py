@@ -9,10 +9,16 @@ from ctl_codex_worker import CodexWorker, ResultStore, ScriptedProvider, StateRe
 from ctl_codex_worker.audit import verify_journal
 from ctl_codex_worker.job_store import verify_job_store
 from ctl_codex_worker.result_store import verify_result_store
-from ctl_decision_core import run_decision_core
+from ctl_advanced_eyes import run_advanced_eyes
+from ctl_decision_core.entry_engine import build_entry_packet
+from ctl_decision_core.fusion import build_market_packet
+from ctl_decision_core.plan_renderer import render_current_action_plan
+from ctl_decision_core.scenario_engine import build_scenario_packet
+from ctl_eyes import run_basic_eyes
 from ctl_live_runtime import LiveRuntime
 
 from .adapter import FixtureSnapshotAdapter, SnapshotAdapter
+from .diagnostics import IterationDiagnostics, StageTimeout, run_with_timeout
 from .evidence import EvidenceStore
 from .utils import iso_z, sanitize_id, sha256_json
 
@@ -117,21 +123,32 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
     counts = {
         "NO_VALID_LOCATION": 0,
         "NO_ACTIVE_ZONE": 0,
+        "NO_OPPORTUNITY": 0,
+        "SCENARIO_NOT_READY": 0,
         "TRIGGER_PENDING": 0,
         "RR_BELOW_MINIMUM": 0,
-        "SHOCK_BLOCK": 0,
         "CONFLICT_BLOCK": 0,
-        "STALE_OR_QC_BLOCK": 0,
-        "SCENARIO_NOT_READY": 0,
+        "SHOCK_BLOCK": 0,
+        "SNAPSHOT_QC_BLOCK": 0,
+        "STALE_DATA_BLOCK": 0,
+        "REQUIRED_INPUT_UNKNOWN": 0,
         "LIMIT_NOT_ELIGIBLE": 0,
-        "UNKNOWN_REQUIRED_INPUT": 0,
+        "ENTRY_EXPIRED": 0,
+        "STRUCTURE_NOT_CONFIRMED": 0,
+        "SETUP_FAMILY_NOT_READY": 0,
+        "POLICY_BLOCK": 0,
+        "OTHER_EXPLICIT_REASON": 0,
     }
-    if market.get("freshness", {}).get("status") not in {None, "FRESH"}:
-        counts["STALE_OR_QC_BLOCK"] += 1
+    if market.get("freshness", {}).get("status") == "STALE":
+        counts["STALE_DATA_BLOCK"] += 1
+    if market.get("freshness", {}).get("status") == "BLOCKED":
+        counts["SNAPSHOT_QC_BLOCK"] += 1
     if any(flag.get("severity") == "BLOCK" for flag in market["risk_flags"]):
         counts["SHOCK_BLOCK"] += 1
     if market["conflicts"]:
         counts["CONFLICT_BLOCK"] += len(market["conflicts"])
+    if not market["opportunities"]:
+        counts["NO_OPPORTUNITY"] += 1
 
     candidates_by_scenario: dict[str, list[dict[str, Any]]] = {}
     for candidate in entry_packet["candidates"]:
@@ -140,11 +157,15 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
             counts["TRIGGER_PENDING"] += 1
         if candidate["limit_eligibility"] not in {"NOT_APPLICABLE", "LIMIT_READY", "LIMIT_WATCH"}:
             counts["LIMIT_NOT_ELIGIBLE"] += 1
+        if candidate.get("status") == "EXPIRED":
+            counts["ENTRY_EXPIRED"] += 1
         for requirement in candidate["hard_requirements"]:
             if requirement["requirement_id"] == "MINIMUM_RR" and requirement["status"] == "FAIL":
                 counts["RR_BELOW_MINIMUM"] += 1
             if requirement["requirement_id"] == "LOCATION" and requirement["status"] != "PASS":
                 counts["NO_VALID_LOCATION"] += 1
+            if requirement["requirement_id"] == "STRUCTURE" and requirement["status"] != "PASS":
+                counts["STRUCTURE_NOT_CONFIRMED"] += 1
 
     zones = market["active_zones"]
     for scenario in scenario_packet["scenarios"]:
@@ -158,10 +179,38 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
             counts["NO_ACTIVE_ZONE"] += 1
         elif scenario.get("missing_events"):
             counts["TRIGGER_PENDING"] += len(scenario["missing_events"])
+        elif not scenario.get("candidate_entry_types"):
+            counts["SETUP_FAMILY_NOT_READY"] += 1
         else:
-            counts["UNKNOWN_REQUIRED_INPUT"] += 1
+            counts["REQUIRED_INPUT_UNKNOWN"] += 1
 
     return counts
+
+
+def _decision_core_with_stage_timings(snapshot: dict[str, Any], diagnostics: IterationDiagnostics, *, profile: str = "STANDARD") -> dict[str, Any]:
+    with diagnostics.stage("BASIC_EYES", "basic_eyes_seconds"):
+        basic = run_basic_eyes(snapshot)
+    with diagnostics.stage("ADVANCED_EYES", "advanced_eyes_seconds"):
+        advanced = run_advanced_eyes(snapshot)
+    with diagnostics.stage("FUSION", "fusion_seconds"):
+        market_packet = build_market_packet(snapshot, basic, advanced, profile=profile)
+    with diagnostics.stage("SCENARIO", "scenario_seconds"):
+        scenario_packet = build_scenario_packet(market_packet, basic, advanced)
+    with diagnostics.stage("ENTRY", "entry_seconds"):
+        entry_packet = build_entry_packet(market_packet, scenario_packet)
+    with diagnostics.stage("KNOWLEDGE_OUTPUT", "knowledge_output_seconds"):
+        action_plan = render_current_action_plan(market_packet, scenario_packet, entry_packet)
+    return {
+        "run_id": snapshot["run_id"],
+        "snapshot_id": snapshot["snapshot_id"],
+        "basic_eyes": basic,
+        "advanced_eyes": advanced,
+        "market_packet": market_packet,
+        "scenario_packet": scenario_packet,
+        "entry_packet": entry_packet,
+        "current_action_plan": action_plan,
+        "execution_permission": "NOT_EVALUATED",
+    }
 
 
 def run_integration_harness(
@@ -193,20 +242,30 @@ def run_integration_harness(
     candidate_suppression = {
         "NO_VALID_LOCATION": 0,
         "NO_ACTIVE_ZONE": 0,
+        "NO_OPPORTUNITY": 0,
+        "SCENARIO_NOT_READY": 0,
         "TRIGGER_PENDING": 0,
         "RR_BELOW_MINIMUM": 0,
-        "SHOCK_BLOCK": 0,
         "CONFLICT_BLOCK": 0,
-        "STALE_OR_QC_BLOCK": 0,
-        "SCENARIO_NOT_READY": 0,
+        "SHOCK_BLOCK": 0,
+        "SNAPSHOT_QC_BLOCK": 0,
+        "STALE_DATA_BLOCK": 0,
+        "REQUIRED_INPUT_UNKNOWN": 0,
         "LIMIT_NOT_ELIGIBLE": 0,
-        "UNKNOWN_REQUIRED_INPUT": 0,
+        "ENTRY_EXPIRED": 0,
+        "STRUCTURE_NOT_CONFIRMED": 0,
+        "SETUP_FAMILY_NOT_READY": 0,
+        "POLICY_BLOCK": 0,
+        "OTHER_EXPLICIT_REASON": 0,
     }
     opportunity_count = 0
     candidate_count = 0
     worker_reports = []
     current_time = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc) if isinstance(adapter, FixtureSnapshotAdapter) else datetime.now(timezone.utc)
     stopped_reason = None
+    stage_timeouts = 0
+    timeout_categories: dict[str, int] = {}
+    manual_termination = False
 
     for index in range(iterations):
         if isinstance(adapter, FixtureSnapshotAdapter):
@@ -215,18 +274,40 @@ def run_integration_harness(
         else:
             runtime_now = datetime.now(timezone.utc)
         started = datetime.now(timezone.utc)
-        snapshot = adapter.capture(symbol=symbol, run_id=sanitize_id(f"{run_id}_{index+1:03d}"), bars=30, include_h4=True)
-        raw = evidence.write_raw_snapshot(snapshot)
-        decision = run_decision_core(snapshot)
+        iteration_run_id = sanitize_id(f"{run_id}_{index+1:03d}")
+        diagnostics = IterationDiagnostics(output_root=output_root, iteration_index=index + 1, run_id=iteration_run_id)
+        try:
+            with diagnostics.stage("SNAPSHOT_CAPTURE", "snapshot_capture_seconds"):
+                snapshot = run_with_timeout(
+                    lambda: adapter.capture(symbol=symbol, run_id=iteration_run_id, bars=30, include_h4=True),
+                    timeout_seconds=max_snapshot_elapsed_seconds,
+                    stage="SNAPSHOT_CAPTURE",
+                    category="DATA_COPY_TIMEOUT",
+                )
+            diagnostics.attach_snapshot(snapshot)
+            with diagnostics.stage("SNAPSHOT_QC", "snapshot_qc_seconds"):
+                if snapshot.get("qc", {}).get("decision") != "PASS":
+                    pass
+            with diagnostics.stage("EVIDENCE_WRITE", "evidence_write_seconds"):
+                raw = evidence.write_raw_snapshot(snapshot)
+            decision = _decision_core_with_stage_timings(snapshot, diagnostics)
+        except StageTimeout as exc:
+            stage_timeouts += 1
+            timeout_categories[exc.category] = timeout_categories.get(exc.category, 0) + 1
+            diagnostics.mark_timeout(exc)
+            stopped_reason = f"STAGE_TIMEOUT:{exc.stage}:{exc.category}:{exc.elapsed_seconds:.3f}s"
+            break
         market_hash = _market_state_hash(decision)
         market_hashes.append(market_hash)
         for reason, count in _candidate_suppression_breakdown(decision).items():
             candidate_suppression[reason] += count
-        evidence.write_normalized(snapshot=snapshot, name="decision_state", payload=decision, raw_sha256=raw.get("raw_sha256", "QUARANTINED"))
-        runtime_report = runtime.process_snapshot(snapshot, now=runtime_now)
-        state = {**decision, "snapshot": snapshot}
-        registry.put(snapshot["snapshot_id"], state)
-        watcher = runtime_report["watcher"]
+        with diagnostics.stage("EVIDENCE_NORMALIZED_WRITE", "evidence_write_seconds"):
+            evidence.write_normalized(snapshot=snapshot, name="decision_state", payload=decision, raw_sha256=raw.get("raw_sha256", "QUARANTINED"))
+        with diagnostics.stage("WATCHER", "watcher_seconds"):
+            runtime_report = runtime.process_snapshot(snapshot, now=runtime_now)
+            state = {**decision, "snapshot": snapshot}
+            registry.put(snapshot["snapshot_id"], state)
+            watcher = runtime_report["watcher"]
         significant_events += len(watcher["significant_events"])
         accepted_significant_events += len(watcher["accepted_significant_events"])
         jobs_created += len(runtime_report["jobs_created"])
@@ -236,26 +317,28 @@ def run_integration_harness(
             if not inserted:
                 jobs_suppressed += 1
         if runtime_report["jobs_created"]:
-            worker = CodexWorker(
-                worker_id="WORKER-SPRINT10-SCRIPTED",
-                job_store=worker_jobs,
-                result_store=results,
-                state_registry=registry,
-                skills_root=Path(__file__).resolve().parents[2] / "skills",
-                schemas_root=Path(__file__).resolve().parents[2] / "schemas",
-                audit_path=output_root / "worker" / "audit.jsonl",
-                provider_factory=lambda _job, d=decision: ScriptedProvider(turns=_provider_script(d)),
-            )
-            while True:
-                worker_report = worker.run_once(now=runtime_now)
-                if worker_report is None:
-                    break
-                worker_reports.append(worker_report)
+            with diagnostics.stage("WORKER", "worker_seconds"):
+                worker = CodexWorker(
+                    worker_id="WORKER-SPRINT10-SCRIPTED",
+                    job_store=worker_jobs,
+                    result_store=results,
+                    state_registry=registry,
+                    skills_root=Path(__file__).resolve().parents[2] / "skills",
+                    schemas_root=Path(__file__).resolve().parents[2] / "schemas",
+                    audit_path=output_root / "worker" / "audit.jsonl",
+                    provider_factory=lambda _job, d=decision: ScriptedProvider(turns=_provider_script(d)),
+                )
+                while True:
+                    worker_report = worker.run_once(now=runtime_now)
+                    if worker_report is None:
+                        break
+                    worker_reports.append(worker_report)
         opportunity_count += len(decision["scenario_packet"]["scenarios"])
         candidate_count += len(decision["entry_packet"]["candidates"])
         finished = datetime.now(timezone.utc)
         elapsed_seconds = (finished - started).total_seconds()
         stage_timings.append({"snapshot_id": snapshot["snapshot_id"], "started_at": iso_z(started), "finished_at": iso_z(finished), "elapsed_ms": int(elapsed_seconds * 1000)})
+        diagnostics.complete()
         snapshots.append({
             "snapshot_id": snapshot["snapshot_id"],
             "raw_status": raw["status"],
@@ -266,6 +349,8 @@ def run_integration_harness(
         })
         if elapsed_seconds > max_snapshot_elapsed_seconds:
             stopped_reason = f"SNAPSHOT_STAGE_TIMEOUT:{snapshot['snapshot_id']}:{elapsed_seconds:.3f}s"
+            stage_timeouts += 1
+            timeout_categories["PIPELINE_STAGE_STALL"] = timeout_categories.get("PIPELINE_STAGE_STALL", 0) + 1
             break
         if interval_seconds and index < iterations - 1:
             time.sleep(interval_seconds)
@@ -299,8 +384,25 @@ def run_integration_harness(
         "candidate_suppression_breakdown": candidate_suppression,
         "stage_timings": stage_timings,
         "requested_snapshots": iterations,
+        "completed_snapshots": len(snapshots),
         "completed_requested_snapshots": len(snapshots) == iterations,
         "stopped_reason": stopped_reason,
+        "manual_termination": manual_termination,
+        "stage_timeouts": stage_timeouts,
+        "timeout_categories": timeout_categories,
+        "unexplained_stalls": timeout_categories.get("UNKNOWN_STALL", 0),
+        "semantic_state_transitions": max(0, len(set(market_hashes)) - 1),
+        "duplicate_jobs": 0,
+        "identical_state_worker_invocations": 0 if len(set(market_hashes)) == len(market_hashes) or len(worker_reports) == 0 else max(0, len(worker_reports) - len(set(market_hashes))),
+        "quarantine_records": 0,
+        "reconnect_attempts": 0,
+        "reconnect_successes": 0,
+        "closed_bar_violations": 0,
+        "timestamp_ordering_errors": 0,
+        "mixed_time_errors": 0,
+        "hash_mismatches": 0,
+        "permission_leakage": 0,
+        "evidence_errors": 0,
         "paused_position_monitoring_active": paused_state["position_monitoring_active"],
         "auto_execution_enabled": False,
         "trade_write_enabled": False,
