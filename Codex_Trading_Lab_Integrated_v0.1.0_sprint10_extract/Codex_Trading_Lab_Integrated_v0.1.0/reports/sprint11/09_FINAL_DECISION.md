@@ -14,11 +14,12 @@ Basis:
 - Permission leakage: 0
 - Evidence integrity: PASS for this run
 - Candidate suppression explained ratio: 100%
-- Real Candidate path: NOT EXERCISED
+- Shock detector audit: `SHOCK_AUDIT_INCONCLUSIVE` after freshness-fix canary
+- Real Candidate path: PARTIALLY EXERCISED, candidates observed in real canary
 - Real Part 3 path: NOT EXERCISED
 - Extended shadow: NOT STARTED
 
-This decision permits continued extended forward shadow and real Candidate/Part 3 validation. It does not permit go-live.
+This decision permits a new 120-snapshot timed session with the timestamp/freshness fix and continued real Part 3 validation. It does not permit go-live.
 
 Do not use:
 

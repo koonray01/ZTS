@@ -10,6 +10,19 @@ def _check(status: str, check_id: str, message: str) -> dict[str, str]:
     return {"check_id": check_id, "status": status, "message": message}
 
 
+def _is_market_closure_gap(previous_close, close_time) -> bool:
+    # FX/CFD feeds commonly omit weekend bars. This is not a missing live bar.
+    cursor = previous_close
+    while cursor < close_time:
+        if cursor.weekday() in {5, 6}:
+            return True
+        # Common daily CFD/metals maintenance break around 21:00-22:00 UTC.
+        if cursor.hour in {21, 22}:
+            return True
+        cursor += timedelta(hours=1)
+    return previous_close.weekday() == 4 and close_time.weekday() == 0
+
+
 def validate_snapshot_qc(snapshot: dict[str, Any], *, now=None, stale_after_ms: int | None = None) -> dict[str, Any]:
     checks: list[dict[str, str]] = []
     warnings: list[str] = []
@@ -57,7 +70,10 @@ def validate_snapshot_qc(snapshot: dict[str, Any], *, now=None, stale_after_ms: 
             if previous_close and close_time <= previous_close:
                 errors.append(f"{tf} timestamps are not strictly increasing.")
             if previous_close and close_time - previous_close != timedelta(minutes=minutes):
-                errors.append(f"{tf} missing/gap around {bar['close_time']}.")
+                if _is_market_closure_gap(previous_close, close_time):
+                    warnings.append(f"{tf} market-closure gap around {bar['close_time']}.")
+                else:
+                    errors.append(f"{tf} missing/gap around {bar['close_time']}.")
             if close_time - open_time != timedelta(minutes=minutes):
                 errors.append(f"{tf} invalid bar duration at {bar.get('bar_id')}.")
             if not (bar["low"] <= bar["open"] <= bar["high"] and bar["low"] <= bar["close"] <= bar["high"]):

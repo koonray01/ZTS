@@ -1,6 +1,6 @@
 # Sprint 11 Real Part3 Path Report
 
-Status: `REAL_PART3_PATH_PENDING`
+Status: `REAL_CANDIDATE_OBSERVED_PART3_PENDING`
 
 The timed real MT5 shadow produced:
 
@@ -11,6 +11,14 @@ The timed real MT5 shadow produced:
 - Part 3 REJECTED decisions: 0
 - Part 3 INVALIDATED decisions: 0
 - manual execution proposals: 0
+- order actions: 0
+
+Freshness-fix canary `outputs/sprint11_freshness_fix_canary_20260713_102820` produced:
+
+- real-market-origin candidates: 90
+- watcher events: 2
+- worker jobs: 1
+- Part 3 requests: 0
 - order actions: 0
 
 Required real or real-snapshot replay paths remain pending:
@@ -33,3 +41,4 @@ Safety status:
 - No broker-side modification occurred.
 - `APPROVED` remains manual-only.
 - Real Part 3 path is not validated because no real-market-origin candidate reached Part 3.
+- Real Candidate creation is now observed, but downstream Part 3 remains pending.

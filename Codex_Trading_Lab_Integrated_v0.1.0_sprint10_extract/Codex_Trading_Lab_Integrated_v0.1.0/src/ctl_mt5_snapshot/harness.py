@@ -118,6 +118,7 @@ def _market_state_hash(decision: dict[str, Any]) -> str:
 
 def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]:
     market = decision["market_packet"]
+    basic = decision["basic_eyes"]
     scenario_packet = decision["scenario_packet"]
     entry_packet = decision["entry_packet"]
     counts = {
@@ -139,6 +140,14 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
         "POLICY_BLOCK": 0,
         "OTHER_EXPLICIT_REASON": 0,
     }
+    sensor_block_codes = {
+        unknown.get("code")
+        for result in basic.get("results", [])
+        for unknown in result.get("unknowns", [])
+        if unknown.get("blocking")
+    }
+    if "SNAPSHOT_NOT_FRESH" in sensor_block_codes or "SNAPSHOT_QC_NOT_PASS" in sensor_block_codes:
+        counts["SNAPSHOT_QC_BLOCK"] += 1
     if market.get("freshness", {}).get("status") == "STALE":
         counts["STALE_DATA_BLOCK"] += 1
     if market.get("freshness", {}).get("status") == "BLOCKED":
@@ -171,9 +180,7 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
     for scenario in scenario_packet["scenarios"]:
         if scenario["scenario_id"] in candidates_by_scenario:
             continue
-        if scenario["rank"] == "TAIL_RISK":
-            counts["SHOCK_BLOCK"] += 1
-        elif scenario["status"] not in {"ACTIVE", "WATCH"}:
+        if scenario["status"] not in {"ACTIVE", "WATCH"}:
             counts["SCENARIO_NOT_READY"] += 1
         elif not zones and "CONTINUATION" not in scenario["candidate_entry_types"]:
             counts["NO_ACTIVE_ZONE"] += 1
@@ -185,6 +192,28 @@ def _candidate_suppression_breakdown(decision: dict[str, Any]) -> dict[str, int]
             counts["REQUIRED_INPUT_UNKNOWN"] += 1
 
     return counts
+
+
+def _primary_secondary_reasons(counts: dict[str, int]) -> tuple[str, list[str]]:
+    priority = [
+        "SNAPSHOT_QC_BLOCK",
+        "STALE_DATA_BLOCK",
+        "SHOCK_BLOCK",
+        "NO_OPPORTUNITY",
+        "SCENARIO_NOT_READY",
+        "NO_VALID_LOCATION",
+        "NO_ACTIVE_ZONE",
+        "TRIGGER_PENDING",
+        "LIMIT_NOT_ELIGIBLE",
+        "RR_BELOW_MINIMUM",
+        "REQUIRED_INPUT_UNKNOWN",
+        "OTHER_EXPLICIT_REASON",
+    ]
+    active = [reason for reason, count in counts.items() if count > 0]
+    if not active:
+        return "OTHER_EXPLICIT_REASON", []
+    primary = next((reason for reason in priority if reason in active), active[0])
+    return primary, [reason for reason in active if reason != primary]
 
 
 def _decision_core_with_stage_timings(snapshot: dict[str, Any], diagnostics: IterationDiagnostics, *, profile: str = "STANDARD") -> dict[str, Any]:
@@ -258,6 +287,19 @@ def run_integration_harness(
         "POLICY_BLOCK": 0,
         "OTHER_EXPLICIT_REASON": 0,
     }
+    primary_suppression: dict[str, int] = {}
+    secondary_suppression: dict[str, int] = {}
+    funnel = {
+        "snapshots": 0,
+        "valid_locations": 0,
+        "active_zones": 0,
+        "opportunities": 0,
+        "scenarios": 0,
+        "ready_scenarios": 0,
+        "entry_candidates": 0,
+        "watcher_events": 0,
+        "part3_requests": 0,
+    }
     opportunity_count = 0
     opportunities_created = 0
     scenarios_created = 0
@@ -311,6 +353,10 @@ def run_integration_harness(
         iteration_suppression = _candidate_suppression_breakdown(decision)
         for reason, count in iteration_suppression.items():
             candidate_suppression[reason] += count
+        primary_reason, secondary_reasons = _primary_secondary_reasons(iteration_suppression)
+        primary_suppression[primary_reason] = primary_suppression.get(primary_reason, 0) + 1
+        for reason in secondary_reasons:
+            secondary_suppression[reason] = secondary_suppression.get(reason, 0) + 1
         with diagnostics.stage("EVIDENCE_NORMALIZED_WRITE", "evidence_write_seconds"):
             evidence.write_normalized(snapshot=snapshot, name="decision_state", payload=decision, raw_sha256=raw.get("raw_sha256", "QUARANTINED"))
         with diagnostics.stage("WATCHER", "watcher_seconds"):
@@ -319,6 +365,7 @@ def run_integration_harness(
             registry.put(snapshot["snapshot_id"], state)
             watcher = runtime_report["watcher"]
         significant_events += len(watcher["significant_events"])
+        funnel["watcher_events"] += len(watcher["significant_events"])
         accepted_significant_events += len(watcher["accepted_significant_events"])
         jobs_created += len(runtime_report["jobs_created"])
         jobs_suppressed += max(0, len(watcher["significant_events"]) - len(watcher["accepted_significant_events"]))
@@ -344,8 +391,17 @@ def run_integration_harness(
                         break
                     worker_reports.append(worker_report)
         market_opportunities = len(decision["market_packet"].get("opportunities", []))
+        market_location = decision["market_packet"].get("location", {})
         scenario_items = decision["scenario_packet"]["scenarios"]
         candidate_items = decision["entry_packet"]["candidates"]
+        funnel["snapshots"] += 1
+        if market_location.get("status") not in {None, "UNKNOWN", "UNAVAILABLE"}:
+            funnel["valid_locations"] += 1
+        funnel["active_zones"] += len(decision["market_packet"].get("active_zones", []))
+        funnel["opportunities"] += market_opportunities
+        funnel["scenarios"] += len(scenario_items)
+        funnel["ready_scenarios"] += sum(1 for item in scenario_items if item.get("status") in {"ACTIVE", "WATCH"})
+        funnel["entry_candidates"] += len(candidate_items)
         opportunity_count += len(scenario_items)
         opportunities_created += market_opportunities
         scenarios_created += len(scenario_items)
@@ -421,6 +477,9 @@ def run_integration_harness(
         "duplicate_event_ratio": 0.0 if significant_events == 0 else round((significant_events - accepted_significant_events) / significant_events, 6),
         "worker_invocations_per_unique_state": 0.0 if not market_hashes else round(len(worker_reports) / len(set(market_hashes)), 6),
         "candidate_suppression_breakdown": candidate_suppression,
+        "primary_suppression_reason": primary_suppression,
+        "secondary_suppression_reasons": secondary_suppression,
+        "candidate_funnel": funnel,
         "stage_timings": stage_timings,
         "requested_snapshots": iterations,
         "completed_snapshots": len(snapshots),

@@ -33,6 +33,11 @@ def _bar_id(symbol: str, timeframe: str, close_time: datetime) -> str:
     return sanitize_id(f"BAR_{symbol}_{timeframe}_{close_time.strftime('%Y%m%dT%H%M%SZ')}")
 
 
+def _rounded_minute_offset(later: datetime, earlier: datetime) -> timedelta:
+    minutes = round((later - earlier).total_seconds() / 60)
+    return timedelta(minutes=minutes)
+
+
 class FixtureSnapshotAdapter(SnapshotAdapter):
     source = "FIXTURE"
 
@@ -147,6 +152,7 @@ class MetaTrader5SnapshotAdapter(SnapshotAdapter):
                 raise SnapshotUnavailable(f"No tick is available for symbol: {symbol}")
             capture = utc_now()
             broker_time = datetime.fromtimestamp(int(tick.time), tz=timezone.utc)
+            broker_offset = _rounded_minute_offset(broker_time, capture)
             frames = list(REQUIRED_TIMEFRAMES) + (["H4"] if include_h4 else [])
             timeframes = []
             for tf in frames:
@@ -156,7 +162,8 @@ class MetaTrader5SnapshotAdapter(SnapshotAdapter):
                 frame_bars = []
                 minutes = TIMEFRAME_MINUTES[tf]
                 for row in rates:
-                    open_time = datetime.fromtimestamp(int(row["time"]), tz=timezone.utc)
+                    broker_open_time = datetime.fromtimestamp(int(row["time"]), tz=timezone.utc)
+                    open_time = broker_open_time - broker_offset
                     close_time = open_time + timedelta(minutes=minutes)
                     frame_bars.append(
                         {
@@ -197,7 +204,7 @@ class MetaTrader5SnapshotAdapter(SnapshotAdapter):
                 },
                 "capture_time": iso_z(capture),
                 "broker_time": iso_z(broker_time),
-                "broker_utc_offset_minutes": int((broker_time - capture).total_seconds() // 60),
+                "broker_utc_offset_minutes": int(broker_offset.total_seconds() // 60),
                 "last_tick_time": iso_z(broker_time),
                 "freshness": {"status": "FRESH", "age_ms": 0, "stale_after_ms": 300000, "reasons": []},
                 "timeframes": timeframes,

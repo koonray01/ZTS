@@ -1,6 +1,6 @@
 # Sprint 11 Candidate Suppression Report
 
-Status: `RUNTIME_VALIDATED_REAL_ENTRY_PATH_PENDING`
+Status: `REAL_CANDIDATE_OBSERVED_PART3_PENDING`
 
 Scope: `outputs/sprint11_real_forward_shadow_2h`
 
@@ -24,7 +24,7 @@ Scope: `outputs/sprint11_real_forward_shadow_2h`
 |---|---:|
 | `NO_OPPORTUNITY` | 120 |
 | `SCENARIO_NOT_READY` | 240 |
-| `SHOCK_BLOCK` | 120 |
+| `SHOCK_BLOCK` | 120 from old observability logic, not confirmed actual shock |
 | `NO_VALID_LOCATION` | 0 |
 | `NO_ACTIVE_ZONE` | 0 |
 | `TRIGGER_PENDING` | 0 |
@@ -42,8 +42,36 @@ Scope: `outputs/sprint11_real_forward_shadow_2h`
 
 ## Interpretation
 
-Candidate count remained zero, but every snapshot without a Candidate had deterministic suppression reasons. No Entry rule was loosened to force Candidate creation.
+Candidate count remained zero, but shock audit changed the interpretation of the old suppression breakdown.
 
-Result: `RUNTIME_VALIDATED_REAL_ENTRY_PATH_PENDING`
+Updated interpretation after `reports/sprint11/10_SHOCK_DETECTOR_AUDIT.md`:
+
+- actual shock active snapshots: 0
+- volatility states: `UNKNOWN` across M5/M15/H1/H4
+- Basic Eyes block reason: `SNAPSHOT_NOT_FRESH`
+- old `SHOCK_BLOCK` count was caused by tail-risk scenario classification, not confirmed shock risk flags
+
+Future runs now report `primary_suppression_reason`, `secondary_suppression_reasons`, and a candidate funnel. No Entry rule was loosened to force Candidate creation.
+
+Result: `RUNTIME_VALIDATED_REAL_ENTRY_PATH_PENDING_WITH_FRESHNESS_AUDIT_REQUIRED`
 
 The runtime and observability path are validated for the no-candidate case. The real Candidate path itself remains pending until a genuine live candidate or clearly labeled real-snapshot replay exercises the downstream mechanics.
+
+## Freshness Fix Canary
+
+After timestamp normalization and session-gap handling:
+
+- output: `outputs/sprint11_freshness_fix_canary_20260713_102820`
+- snapshots: 10
+- valid_locations: 10
+- active_zones: 380
+- opportunities: 30
+- scenarios: 50
+- ready_scenarios: 0
+- entry_candidates: 90
+- watcher_events: 2
+- jobs_created: 1
+- part3_requests: 0
+- primary_suppression_reason: `TRIGGER_PENDING=10`
+
+This is real-market-origin Candidate creation, but not a complete Real Candidate -> Part 3 path.
