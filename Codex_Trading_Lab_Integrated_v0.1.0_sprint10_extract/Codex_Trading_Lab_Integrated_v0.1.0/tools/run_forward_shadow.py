@@ -26,6 +26,8 @@ def classify_acceptance(report: dict) -> tuple[str, bool]:
         return "SAFETY_VIOLATION_ORDER_ACTIONS", False
     if report.get("requested_snapshots") == 10 and report.get("snapshots_processed") == 10:
         return "TIMED_CANARY_PASS", True
+    if report.get("requested_snapshots") == 120 and report.get("snapshots_processed") == 120:
+        return "TIMED_FORWARD_SHADOW_PASS", True
     if report.get("snapshots_processed", 0) < 20:
         return "REAL_MT5_SMOKE_ONLY", False
     return "ACCEPTED_REAL_FORWARD_SHADOW_MINIMUM", True
@@ -73,6 +75,8 @@ def main() -> int:
         "worker_invocations": report["worker_invocations"],
         "identical_state_worker_invocations": report.get("identical_state_worker_invocations", 0),
         "candidate_count": report.get("candidate_count", 0),
+        "snapshots_without_candidate": report.get("snapshots_without_candidate", 0),
+        "candidate_suppression_explained_ratio": report.get("candidate_suppression_explained_ratio"),
         "part3_requests": report.get("part3_requests", 0),
         "order_actions": report["order_actions"],
         "permission_leakage": report.get("permission_leakage", 0),

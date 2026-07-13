@@ -259,7 +259,16 @@ def run_integration_harness(
         "OTHER_EXPLICIT_REASON": 0,
     }
     opportunity_count = 0
+    opportunities_created = 0
+    scenarios_created = 0
+    ready_scenarios = 0
     candidate_count = 0
+    snapshots_without_candidate = 0
+    snapshots_with_candidate = 0
+    suppression_explained_snapshots = 0
+    candidates_created_by_entry_type: dict[str, int] = {}
+    candidates_rejected_by_gate: dict[str, int] = {}
+    candidate_expiry_count = 0
     worker_reports = []
     current_time = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc) if isinstance(adapter, FixtureSnapshotAdapter) else datetime.now(timezone.utc)
     stopped_reason = None
@@ -299,7 +308,8 @@ def run_integration_harness(
             break
         market_hash = _market_state_hash(decision)
         market_hashes.append(market_hash)
-        for reason, count in _candidate_suppression_breakdown(decision).items():
+        iteration_suppression = _candidate_suppression_breakdown(decision)
+        for reason, count in iteration_suppression.items():
             candidate_suppression[reason] += count
         with diagnostics.stage("EVIDENCE_NORMALIZED_WRITE", "evidence_write_seconds"):
             evidence.write_normalized(snapshot=snapshot, name="decision_state", payload=decision, raw_sha256=raw.get("raw_sha256", "QUARANTINED"))
@@ -333,8 +343,27 @@ def run_integration_harness(
                     if worker_report is None:
                         break
                     worker_reports.append(worker_report)
-        opportunity_count += len(decision["scenario_packet"]["scenarios"])
-        candidate_count += len(decision["entry_packet"]["candidates"])
+        market_opportunities = len(decision["market_packet"].get("opportunities", []))
+        scenario_items = decision["scenario_packet"]["scenarios"]
+        candidate_items = decision["entry_packet"]["candidates"]
+        opportunity_count += len(scenario_items)
+        opportunities_created += market_opportunities
+        scenarios_created += len(scenario_items)
+        ready_scenarios += sum(1 for item in scenario_items if item.get("status") in {"ACTIVE", "WATCH"})
+        candidate_count += len(candidate_items)
+        if candidate_items:
+            snapshots_with_candidate += 1
+        else:
+            snapshots_without_candidate += 1
+            if any(count > 0 for count in iteration_suppression.values()):
+                suppression_explained_snapshots += 1
+        for candidate in candidate_items:
+            entry_type = candidate.get("entry_type", "UNKNOWN")
+            candidates_created_by_entry_type[entry_type] = candidates_created_by_entry_type.get(entry_type, 0) + 1
+            if candidate.get("status") == "REJECTED":
+                candidates_rejected_by_gate[candidate.get("limit_eligibility", "UNKNOWN")] = candidates_rejected_by_gate.get(candidate.get("limit_eligibility", "UNKNOWN"), 0) + 1
+            if candidate.get("status") == "EXPIRED":
+                candidate_expiry_count += 1
         finished = datetime.now(timezone.utc)
         elapsed_seconds = (finished - started).total_seconds()
         stage_timings.append({"snapshot_id": snapshot["snapshot_id"], "started_at": iso_z(started), "finished_at": iso_z(finished), "elapsed_ms": int(elapsed_seconds * 1000)})
@@ -376,7 +405,17 @@ def run_integration_harness(
         "jobs_created": jobs_created,
         "jobs_suppressed": jobs_suppressed,
         "opportunity_count": opportunity_count,
+        "opportunities_created": opportunities_created,
+        "scenarios_created": scenarios_created,
+        "ready_scenarios": ready_scenarios,
         "candidate_count": candidate_count,
+        "snapshots_without_candidate": snapshots_without_candidate,
+        "snapshots_with_candidate": snapshots_with_candidate,
+        "candidate_suppression_explained_ratio": 1.0 if snapshots_without_candidate == 0 else round(suppression_explained_snapshots / snapshots_without_candidate, 6),
+        "candidates_created_by_entry_type": candidates_created_by_entry_type,
+        "candidates_rejected_by_gate": candidates_rejected_by_gate,
+        "average_candidate_lifetime": None,
+        "candidate_expiry_count": candidate_expiry_count,
         "worker_result_count": len(worker_reports),
         "worker_invocations": len(worker_reports),
         "duplicate_event_ratio": 0.0 if significant_events == 0 else round((significant_events - accepted_significant_events) / significant_events, 6),
