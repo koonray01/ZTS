@@ -50,6 +50,7 @@ Runtime metrics:
 - reconnect_successes: 0
 - diagnostics_files: 120
 - raw_evidence_manifests: 120
+- evidence_bundle: `outputs/sprint11_real_forward_shadow_2h/evidence_bundle.zip`
 
 Acceptance result: `TIMED_FORWARD_SHADOW_PASS`
 
@@ -62,3 +63,15 @@ Limitations:
 - No real Part 3 request occurred.
 
 This validates the timed real MT5 shadow runtime stability and safety gates for this session only. It does not validate the real Candidate or real Part 3 paths.
+
+## Post-Run Validation
+
+| Command | Exit | Result |
+|---|---:|---|
+| `python -m pytest tests/test_sprint10_snapshot_harness.py -q` | 0 | 9 passed |
+| `python -m pytest -q` | 0 | 42 passed |
+| `python tools/run_all_validation.py --output outputs/sprint11_validation_after_timed_shadow` | 2 | Failed due output/state reuse in validation output path |
+| `python tools/run_all_validation.py --output outputs/sprint11_validation_after_timed_shadow_fresh2` | 0 | 9 checks passed |
+| `python tools/bundle_sprint10_evidence.py --evidence-root outputs/sprint11_real_forward_shadow_2h/evidence --output outputs/sprint11_real_forward_shadow_2h/evidence_bundle.zip` | 0 | Evidence bundle created |
+
+The failed validation run was classified as output/state reuse, not a code regression. A fresh output directory passed all integrated checks.
