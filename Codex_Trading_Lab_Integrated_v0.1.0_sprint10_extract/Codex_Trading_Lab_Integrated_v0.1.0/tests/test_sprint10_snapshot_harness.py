@@ -176,10 +176,14 @@ def test_full_pipeline_identity_harness_and_runtime_reinitialization_recovery(tm
     assert report["opportunity_count"] >= 3
     assert report["candidate_count"] >= 0
     assert report["unique_candidate_ids"] <= report["candidate_count"]
+    assert report["semantic_candidate_ids"] == report["unique_candidate_ids"]
     assert report["new_candidates_created"] + report["candidates_carried_forward"] == report["candidate_count"]
     assert report["runtime_reinitializations"] == 1
     assert report["runtime_reinitialization_recoveries"] == 1
+    assert report["runtime_reload_success"] is True
     assert report["part3_requests"] == 0
+    assert report["real_part3_requests"] == 0
+    assert report["duplicate_part3_requests"] == 0
     assert report["part3_not_requested_reason"]
     assert report["paused_position_monitoring_active"] is True
     assert report["auto_execution_enabled"] is False

@@ -7,6 +7,7 @@ Session 2 proved real-market-origin Candidate creation, but its 1080 Candidate i
 The Session 3 harness records:
 
 - `unique_candidate_ids`
+- `semantic_candidate_ids`
 - `new_candidates_created`
 - `candidates_carried_forward`
 - `candidate_status_changes`
@@ -14,10 +15,14 @@ The Session 3 harness records:
 - `candidates_invalidated`
 - `duplicate_semantic_candidates`
 - `part3_eligible_candidates`
+- `unique_ready_candidates`
+- `duplicate_part3_requests`
 - `part3_blocked_by_gate`
 - `part3_not_requested_reason`
 
 Candidate identity used for lifecycle analysis is semantic and does not replace the snapshot-bound `candidate_id` required by the existing contract and Part 3 evidence identity.
+
+Session 3 acceptance requires `part3_requests <= unique_ready_candidates`, `duplicate_part3_requests = 0`, zero order actions, zero permission leakage, and intact queue/audit verification. `real_part3_requests` is reported only for `LIVE_MT5` runs.
 
 Part 3 is called once for a semantic Candidate only after it is `READY_FOR_PERMISSION_REVIEW`. All other Candidate states are reported as suppressed, not silently ignored. `APPROVED` remains a manual-review result and cannot place, modify or cancel an order.
 

@@ -358,6 +358,8 @@ def run_integration_harness(
     candidates_invalidated = 0
     duplicate_semantic_candidates = 0
     part3_eligible_candidates = 0
+    unique_ready_candidate_ids: set[str] = set()
+    duplicate_part3_requests = 0
     part3_requested_lifecycle_keys: set[str] = set()
     part3_decisions: dict[str, int] = {}
     part3_blocked_by_gate: dict[str, int] = {}
@@ -506,7 +508,9 @@ def run_integration_harness(
                 part3_blocked_by_gate["G_LIFECYCLE"] = part3_blocked_by_gate.get("G_LIFECYCLE", 0) + 1
                 continue
             part3_eligible_candidates += 1
+            unique_ready_candidate_ids.add(lifecycle_key)
             if lifecycle_key in part3_requested_lifecycle_keys:
+                duplicate_part3_requests += 1
                 part3_not_requested_reason["DUPLICATE_READY_LIFECYCLE"] = part3_not_requested_reason.get("DUPLICATE_READY_LIFECYCLE", 0) + 1
                 continue
             part3_requested_lifecycle_keys.add(lifecycle_key)
@@ -584,6 +588,7 @@ def run_integration_harness(
         "average_candidate_lifetime": None,
         "candidate_expiry_count": candidate_expiry_count,
         "unique_candidate_ids": len(unique_candidate_ids),
+        "semantic_candidate_ids": len(unique_candidate_ids),
         "new_candidates_created": new_candidates_created,
         "candidates_carried_forward": candidates_carried_forward,
         "candidate_status_changes": candidate_status_changes,
@@ -591,6 +596,8 @@ def run_integration_harness(
         "candidates_invalidated": candidates_invalidated,
         "duplicate_semantic_candidates": duplicate_semantic_candidates,
         "part3_eligible_candidates": part3_eligible_candidates,
+        "unique_ready_candidates": len(unique_ready_candidate_ids),
+        "duplicate_part3_requests": duplicate_part3_requests,
         "part3_blocked_by_gate": part3_blocked_by_gate,
         "part3_not_requested_reason": part3_not_requested_reason,
         "worker_result_count": len(worker_reports),
@@ -616,6 +623,7 @@ def run_integration_harness(
         "quarantine_records": 0,
         "runtime_reinitializations": runtime_reinitializations,
         "runtime_reinitialization_recoveries": runtime_reinitialization_recoveries,
+        "runtime_reload_success": runtime_reinitializations > 0 and runtime_reinitializations == runtime_reinitialization_recoveries,
         "reconnect_attempts": reconnect_attempts,
         "reconnect_successes": reconnect_successes,
         "closed_bar_violations": 0,
@@ -628,6 +636,7 @@ def run_integration_harness(
         "auto_execution_enabled": False,
         "trade_write_enabled": False,
         "part3_requests": sum(part3_decisions.values()),
+        "real_part3_requests": sum(part3_decisions.values()) if adapter.source == "LIVE_MT5" else 0,
         "part3_decisions": part3_decisions,
         "order_actions": 0,
         "integrity": {"worker_job_store": job_ok, "worker_result_store": result_ok, "worker_audit": audit_ok, "errors": job_errors + result_errors + audit_errors},
