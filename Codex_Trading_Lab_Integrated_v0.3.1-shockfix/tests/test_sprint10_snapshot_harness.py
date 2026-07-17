@@ -243,6 +243,62 @@ def test_full_pipeline_identity_harness_and_restart_recovery(tmp_path):
     assert report["integrity"]["errors"] == []
 
 
+def test_forward_harness_exposes_per_snapshot_tfi_source_provider():
+    parameters = inspect.signature(run_integration_harness).parameters
+    assert "tfi_shadow_source_provider" in parameters
+
+
+def test_forward_harness_attaches_fresh_tfi_from_provider_without_authority_change(tmp_path):
+    tfi_path = tmp_path / "fresh_tfi.json"
+    tfi_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1",
+                "schema_ref": "brain/output_schema/tfi_snapshot.schema.json",
+                "run_id": "TFI-FORWARD-TEST",
+                "timestamp_utc": "2025-03-10T11:59:00Z",
+                "evaluation_end_utc": "2025-03-10T11:45:00Z",
+                "bar_close_utc": "2025-03-10T11:45:00Z",
+                "data_qc": {"status": "PASS"},
+                "market_board": [
+                    {"symbol": "XAUUSD", "evidence_family": "gold_precious_metals", "quality": "FRESH", "return_pct": 0.2, "source_snapshot_id": "XAU-1", "freshness_threshold_seconds": 1020},
+                    {"symbol": "EURUSD", "evidence_family": "broad_usd_fx", "quality": "FRESH", "return_pct": -0.1, "source_snapshot_id": "EUR-1", "freshness_threshold_seconds": 1020},
+                    {"symbol": "USDJPY", "evidence_family": "jpy_cross_breadth", "quality": "FRESH", "return_pct": -0.1, "source_snapshot_id": "JPY-1", "freshness_threshold_seconds": 1020},
+                ],
+                "manifest": {"run_id": "TFI-FORWARD-TEST", "config_hash": "A" * 64},
+                "execution_impact": "none",
+                "can_execute": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = 0
+
+    def provider():
+        nonlocal calls
+        calls += 1
+        return tfi_path
+
+    report = run_integration_harness(
+        output_root=tmp_path / "run",
+        iterations=1,
+        tfi_shadow_source_provider=provider,
+    )
+    decision_path = tmp_path / "run" / "runtime" / "outputs" / report["snapshots"][0]["snapshot_id"] / "decision_state.json"
+    decision = json.loads(decision_path.read_text(encoding="utf-8"))
+    shadow = decision["advisory_shadow"]
+
+    assert calls == 1
+    assert shadow["status"] == "SHADOW_ACCEPTED"
+    assert shadow["tfi_context"]["status"] == "OBSERVATION_ONLY"
+    assert shadow["authority_hash_before"] == shadow["authority_hash_after"]
+    assert shadow["candidate_permission_invariant"] is True
+    assert shadow["order_actions"] == shadow["permission_leakage"] == shadow["tfi_permission_override"] == 0
+    assert report["tfi_context_attached_snapshots"] == 1
+    assert report["tfi_context_observation_only_snapshots"] == 1
+    assert report["tfi_context_unknown_snapshots"] == 0
+
+
 def test_forward_shadow_cli_reports_pending_when_real_mt5_unavailable(root, monkeypatch, tmp_path):
     script = root / "tools" / "run_forward_shadow.py"
     completed = subprocess.run(
@@ -288,3 +344,56 @@ def test_forward_shadow_acceptance_classification(root):
 
     incomplete = dict(base, completed_requested_snapshots=False)
     assert run_forward_shadow.classify_acceptance(incomplete) == ("INCOMPLETE_REQUESTED_SNAPSHOTS", False)
+
+
+def test_forward_shadow_exposes_tradingos_tfi_provider(root):
+    sys.path.insert(0, str(root / "tools"))
+    import run_forward_shadow
+
+    assert hasattr(run_forward_shadow, "build_tradingos_tfi_provider")
+
+
+def test_tradingos_tfi_provider_refreshes_and_returns_safe_fresh_snapshot(root, tmp_path):
+    sys.path.insert(0, str(root / "tools"))
+    import run_forward_shadow
+
+    trading_os = tmp_path / "trading_os"
+    trading_os.mkdir()
+    (trading_os / "trade.py").write_text("# test entrypoint\n", encoding="utf-8")
+    latest = trading_os / "data" / "tfi" / "snapshots" / "latest_snapshot.json"
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        if "analyze" in command:
+            latest.parent.mkdir(parents=True, exist_ok=True)
+            latest.write_text(
+                json.dumps(
+                    {
+                        "timestamp_utc": "2026-07-16T10:29:35Z",
+                        "evaluation_end_utc": "2026-07-16T10:15:00Z",
+                        "data_qc": {"status": "PASS"},
+                        "market_board": [
+                            {"symbol": "XAUUSD", "quality": "FRESH"},
+                            {"symbol": "EURUSD", "quality": "FRESH"},
+                            {"symbol": "USDJPY", "quality": "FRESH"},
+                        ],
+                        "execution_impact": "none",
+                        "can_execute": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    provider = run_forward_shadow.build_tradingos_tfi_provider(
+        trading_os,
+        python_executable="python-test",
+        refresh_attempts=1,
+        command_runner=runner,
+    )
+
+    assert Path(provider()) == latest
+    assert [call[0][3] for call in calls] == ["collect", "analyze"]
+    assert all(call[1]["cwd"] == trading_os for call in calls)
+    assert all(call[1]["encoding"] == "utf-8" and call[1]["errors"] == "replace" for call in calls)

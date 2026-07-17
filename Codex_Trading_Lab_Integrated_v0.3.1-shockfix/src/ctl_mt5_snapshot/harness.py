@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from ctl_codex_worker import CodexWorker, ResultStore, ScriptedProvider, StateRegistry, WorkerJobStore
 from ctl_codex_worker.audit import verify_journal
@@ -256,6 +256,7 @@ def run_integration_harness(
     run_id: str = "RUN-SPRINT10-FIXTURE",
     interval_seconds: float = 0,
     max_snapshot_elapsed_seconds: float = 300,
+    tfi_shadow_source_provider: Callable[[], str | Path | None] | None = None,
 ) -> dict[str, Any]:
     output_root = Path(output_root)
     evidence = EvidenceStore(output_root / "evidence")
@@ -321,6 +322,9 @@ def run_integration_harness(
     candidates_created_by_entry_type: dict[str, int] = {}
     candidates_rejected_by_gate: dict[str, int] = {}
     candidate_expiry_count = 0
+    tfi_context_attached_snapshots = 0
+    tfi_context_observation_only_snapshots = 0
+    tfi_context_unknown_snapshots = 0
     worker_reports = []
     current_time = datetime(2025, 3, 10, 12, 0, tzinfo=timezone.utc) if isinstance(adapter, FixtureSnapshotAdapter) else datetime.now(timezone.utc)
     stopped_reason = None
@@ -338,6 +342,11 @@ def run_integration_harness(
         iteration_run_id = sanitize_id(f"{run_id}_{index+1:03d}")
         diagnostics = IterationDiagnostics(output_root=output_root, iteration_index=index + 1, run_id=iteration_run_id)
         try:
+            iteration_tfi_source = None
+            if tfi_shadow_source_provider is not None:
+                with diagnostics.stage("TFI_REFRESH"):
+                    provided = tfi_shadow_source_provider()
+                    iteration_tfi_source = None if provided is None else str(provided)
             with diagnostics.stage("SNAPSHOT_CAPTURE", "snapshot_capture_seconds"):
                 snapshot = run_with_timeout(
                     lambda: adapter.capture(symbol=symbol, run_id=iteration_run_id, bars=30, include_h4=True),
@@ -370,10 +379,21 @@ def run_integration_harness(
         with diagnostics.stage("EVIDENCE_NORMALIZED_WRITE", "evidence_write_seconds"):
             evidence.write_normalized(snapshot=snapshot, name="decision_state", payload=decision, raw_sha256=raw.get("raw_sha256", "QUARANTINED"))
         with diagnostics.stage("WATCHER", "watcher_seconds"):
-            runtime_report = runtime.process_snapshot(snapshot, now=runtime_now)
+            runtime_report = runtime.process_snapshot(
+                snapshot,
+                now=runtime_now,
+                tfi_shadow_source=iteration_tfi_source,
+            )
             state = {**decision, "snapshot": snapshot}
             registry.put(snapshot["snapshot_id"], state)
             watcher = runtime_report["watcher"]
+        runtime_tfi = runtime_report["decision_state"].get("advisory_shadow", {}).get("tfi_context")
+        if isinstance(runtime_tfi, dict):
+            tfi_context_attached_snapshots += 1
+            if runtime_tfi.get("status") == "OBSERVATION_ONLY":
+                tfi_context_observation_only_snapshots += 1
+            else:
+                tfi_context_unknown_snapshots += 1
         significant_events += len(watcher["significant_events"])
         funnel["watcher_events"] += len(watcher["significant_events"])
         accepted_significant_events += len(watcher["accepted_significant_events"])
@@ -452,6 +472,8 @@ def run_integration_harness(
             "significant_events": len(watcher["significant_events"]),
             "accepted_significant_events": len(watcher["accepted_significant_events"]),
             "runtime_jobs": len(runtime_report["jobs_created"]),
+            "tfi_context_attached": isinstance(runtime_tfi, dict),
+            "tfi_context_status": runtime_tfi.get("status") if isinstance(runtime_tfi, dict) else None,
         })
         if elapsed_seconds > max_snapshot_elapsed_seconds:
             stopped_reason = f"SNAPSHOT_STAGE_TIMEOUT:{snapshot['snapshot_id']}:{elapsed_seconds:.3f}s"
@@ -498,6 +520,10 @@ def run_integration_harness(
         "candidates_rejected_by_gate": candidates_rejected_by_gate,
         "average_candidate_lifetime": None,
         "candidate_expiry_count": candidate_expiry_count,
+        "tfi_source_requested": tfi_shadow_source_provider is not None,
+        "tfi_context_attached_snapshots": tfi_context_attached_snapshots,
+        "tfi_context_observation_only_snapshots": tfi_context_observation_only_snapshots,
+        "tfi_context_unknown_snapshots": tfi_context_unknown_snapshots,
         "worker_result_count": len(worker_reports),
         "worker_invocations": len(worker_reports),
         "duplicate_event_ratio": 0.0 if significant_events == 0 else round((significant_events - accepted_significant_events) / significant_events, 6),
