@@ -215,3 +215,50 @@ def test_recorder_is_idempotent_and_missing_manifest_is_partial(tmp_path: Path) 
     assert first["event_ids"] == second["event_ids"]
     assert first["integrity_tier"] == "PARTIAL"
     assert len(ledger.read_all()) == len(first["event_ids"])
+
+
+def _record_fixture(tmp_path: Path) -> tuple[Path, dict]:
+    from ctl_analysis_registry.recorder import record_zenith_output
+
+    output = _write_zenith_fixture(tmp_path)
+    ledger_path = tmp_path / "registry" / "events.jsonl"
+    result = record_zenith_output(output, AppendOnlyLedger(ledger_path))
+    return ledger_path, result
+
+
+def test_sqlite_index_rebuilds_and_exposes_traceable_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    from ctl_analysis_registry.index import rebuild_index
+
+    ledger_path, result = _record_fixture(tmp_path)
+    sqlite_path = tmp_path / "registry" / "index.sqlite"
+
+    counts = rebuild_index(ledger_path, sqlite_path)
+
+    assert counts["events"] == len(result["event_ids"])
+    with sqlite3.connect(sqlite_path) as connection:
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"events", "analyses", "views", "decisions", "evidence_refs"} <= tables
+        row = connection.execute(
+            "SELECT analysis_id, source_class, integrity_tier FROM analyses WHERE analysis_id=?",
+            (result["analysis_id"],),
+        ).fetchone()
+        assert row == (result["analysis_id"], "LIVE_MT5", "VERIFIED")
+
+
+def test_sqlite_rebuild_is_repeatable_and_tamper_fails(tmp_path: Path) -> None:
+    from ctl_analysis_registry.index import rebuild_index
+
+    ledger_path, _ = _record_fixture(tmp_path)
+    first_path = tmp_path / "registry" / "first.sqlite"
+    second_path = tmp_path / "registry" / "second.sqlite"
+    first = rebuild_index(ledger_path, first_path)
+    second = rebuild_index(ledger_path, second_path)
+    assert first == second
+
+    lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    lines[0] = lines[0].replace("ANALYSIS_RECORDED", "VIEW_RECORDED")
+    ledger_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(LedgerError, match="invalid ledger"):
+        rebuild_index(ledger_path, tmp_path / "registry" / "tampered.sqlite")
