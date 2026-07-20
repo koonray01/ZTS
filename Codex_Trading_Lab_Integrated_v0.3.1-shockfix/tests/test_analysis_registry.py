@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 from jsonschema import ValidationError, validate
 
+from ctl_analysis_registry.events import build_event, event_hash, validate_event_chain
 from ctl_analysis_registry.identity import canonical_json, sha256_hex, stable_id
+from ctl_analysis_registry.ledger import AppendOnlyLedger, LedgerCollisionError, LedgerError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,3 +67,60 @@ def test_bundle_unknown_top_level_field_is_rejected() -> None:
     invalid["unexpected"] = True
     with pytest.raises(ValidationError):
         validate(invalid, _schema("analysis_registry_bundle.schema.json"))
+
+
+def _event_payload(event_id: str, *, payload: dict | None = None) -> dict:
+    return {
+        "event_id": event_id,
+        "event_type": "ANALYSIS_RECORDED",
+        "event_time": "2026-07-20T09:00:00Z",
+        "decision_time": "2026-07-20T09:00:00Z",
+        "source_class": "LIVE_MT5",
+        "integrity_tier": "VERIFIED",
+        "producer": "test",
+        "payload": payload or {"analysis_id": "ANALYSIS_TEST"},
+    }
+
+
+def test_event_chain_links_and_hashes_are_deterministic() -> None:
+    first = build_event(_event_payload("E1"), previous_hash=None)
+    second = build_event(_event_payload("E2"), previous_hash=first["event_hash"])
+
+    assert first["previous_event_hash"] is None
+    assert second["previous_event_hash"] == first["event_hash"]
+    assert event_hash(first) == first["event_hash"]
+    assert validate_event_chain([first, second]) == []
+
+
+def test_tampered_event_is_rejected_by_chain_validation() -> None:
+    event = build_event(_event_payload("E1"), previous_hash=None)
+    event["payload"]["tampered"] = True
+
+    errors = validate_event_chain([event])
+
+    assert any("hash mismatch" in error for error in errors)
+
+
+def test_ledger_append_is_idempotent_and_collision_safe(tmp_path: Path) -> None:
+    path = tmp_path / "events.jsonl"
+    ledger = AppendOnlyLedger(path)
+    first = build_event(_event_payload("E1"), previous_hash=None)
+
+    assert ledger.append(first) == "E1"
+    assert ledger.append(first) == "E1"
+    assert len(ledger.read_all()) == 1
+
+    collision = build_event(_event_payload("E1", payload={"different": True}), previous_hash=None)
+    with pytest.raises(LedgerCollisionError):
+        ledger.append(collision)
+    assert len(ledger.read_all()) == 1
+
+
+def test_ledger_rejects_stale_previous_hash(tmp_path: Path) -> None:
+    ledger = AppendOnlyLedger(tmp_path / "events.jsonl")
+    first = build_event(_event_payload("E1"), previous_hash=None)
+    ledger.append(first)
+    stale = build_event(_event_payload("E2"), previous_hash=None)
+
+    with pytest.raises(LedgerError, match="previous_event_hash"):
+        ledger.append(stale)
