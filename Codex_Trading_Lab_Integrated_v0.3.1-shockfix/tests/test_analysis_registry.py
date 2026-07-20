@@ -124,3 +124,94 @@ def test_ledger_rejects_stale_previous_hash(tmp_path: Path) -> None:
 
     with pytest.raises(LedgerError, match="previous_event_hash"):
         ledger.append(stale)
+
+
+def _write_zenith_fixture(root: Path, *, with_manifest: bool = True) -> Path:
+    output = root / "analysis"
+    evidence = output / "evidence" / "raw"
+    evidence.mkdir(parents=True)
+    snapshot = {
+        "snapshot_id": "SNAP_FIXTURE",
+        "symbol": "XAUUSD",
+        "source": "LIVE_MT5",
+        "capture_time": "2026-07-20T09:00:00Z",
+        "evidence_refs": ["SNAP_FIXTURE", "BAR_FIXTURE"],
+        "qc": {"decision": "PASS"},
+        "freshness": {"status": "FRESH"},
+        "quote": {"bid": 4018.36, "ask": 4018.58},
+    }
+    decision = {
+        "snapshot_id": "SNAP_FIXTURE",
+        "generated_at": "2026-07-20T09:00:00Z",
+        "market_packet": {"snapshot_id": "SNAP_FIXTURE", "market_state": []},
+        "scenario_packet": {
+            "scenarios": [
+                {
+                    "scenario_id": "SCN_FIXTURE",
+                    "rank": "PRIMARY",
+                    "label": "Balance persists",
+                    "direction": "RANGE",
+                    "status": "WATCHING",
+                    "missing_events": ["CLOSED_BAR_RESOLUTION"],
+                }
+            ]
+        },
+        "entry_packet": {"snapshot_id": "SNAP_FIXTURE", "candidates": []},
+        "operational_state": {"current_action": "WATCH"},
+        "claim_ledger": {"evidence_refs": ["SNAP_FIXTURE"]},
+    }
+    delta = {
+        "schema_version": "0.1.0",
+        "audit_status": "PASS",
+        "previous_snapshot_id": None,
+        "current_snapshot_id": "SNAP_FIXTURE",
+        "previous_count": 0,
+        "current_count": 0,
+        "new": [], "stable": [], "status_changed": [], "terminalized": [],
+        "expired": [], "superseded": [], "semantic_deduplicated": [],
+        "suppressed": [], "unexpected_disappearance": [],
+        "unexpected_disappearance_count": 0, "duplicate_candidate_ids": [],
+        "continuity_ok": True,
+    }
+    for name, value in (("snapshot.json", snapshot), ("decision_state.json", decision), ("candidate_delta.json", delta)):
+        (output / name).write_text(json.dumps(value), encoding="utf-8")
+    if with_manifest:
+        (evidence / "manifest.json").write_text(json.dumps({"snapshot_id": "SNAP_FIXTURE", "sha256": "a" * 64}), encoding="utf-8")
+    return output
+
+
+def test_recorder_emits_bound_zenith_events_and_safety(tmp_path: Path) -> None:
+    from ctl_analysis_registry.recorder import record_zenith_output
+
+    output = _write_zenith_fixture(tmp_path)
+    ledger = AppendOnlyLedger(tmp_path / "registry" / "events.jsonl")
+
+    result = record_zenith_output(output, ledger)
+    events = ledger.read_all()
+
+    assert result["source_class"] == "LIVE_MT5"
+    assert result["integrity_tier"] == "VERIFIED"
+    assert result["analysis_id"].startswith("ANALYSIS_")
+    assert len(events) == len(result["event_ids"])
+    assert {event["event_type"] for event in events} == {"ANALYSIS_RECORDED", "VIEW_RECORDED", "DECISION_RECORDED"}
+    assert all(event["payload"]["analysis_id"] == result["analysis_id"] for event in events)
+    assert events[0]["payload"]["safety"] == {
+        "trade_write_enabled": False,
+        "auto_execution_enabled": False,
+        "order_actions": 0,
+        "permission_leakage": 0,
+    }
+
+
+def test_recorder_is_idempotent_and_missing_manifest_is_partial(tmp_path: Path) -> None:
+    from ctl_analysis_registry.recorder import record_zenith_output
+
+    output = _write_zenith_fixture(tmp_path, with_manifest=False)
+    ledger = AppendOnlyLedger(tmp_path / "registry" / "events.jsonl")
+
+    first = record_zenith_output(output, ledger)
+    second = record_zenith_output(output, ledger)
+
+    assert first["event_ids"] == second["event_ids"]
+    assert first["integrity_tier"] == "PARTIAL"
+    assert len(ledger.read_all()) == len(first["event_ids"])
