@@ -8,3 +8,4 @@ data/runtime/*
 !data/runtime/.gitkeep
 .env
 *.log
+.worktrees/
