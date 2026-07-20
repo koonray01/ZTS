@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/analysis_registry_event.schema.json",
+  "title": "Analysis Registry Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "event_id", "event_type", "event_time",
+    "decision_time", "source_class", "integrity_tier", "producer",
+    "payload", "previous_event_hash", "event_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "ANALYSIS_REGISTRY_EVENT_V0_1"},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_type": {
+      "enum": [
+        "ANALYSIS_RECORDED", "VIEW_RECORDED", "DECISION_RECORDED",
+        "CANDIDATE_STATUS_CHANGED", "OUTCOME_LABEL_PENDING",
+        "MANUAL_TRADE_RECORDED", "CORRECTION_APPENDED",
+        "SUPERSESSION_APPENDED"
+      ]
+    },
+    "event_time": {"type": "string", "minLength": 1},
+    "decision_time": {"type": ["string", "null"]},
+    "source_class": {"enum": ["LIVE_MT5", "REPLAY", "SYNTHETIC", "CHAT_ONLY"]},
+    "integrity_tier": {"enum": ["VERIFIED", "PARTIAL", "CHAT_ONLY", "UNMATCHED"]},
+    "producer": {"type": "string", "minLength": 1},
+    "payload": {"type": "object"},
+    "previous_event_hash": {"type": ["string", "null"]},
+    "event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
