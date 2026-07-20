@@ -262,3 +262,35 @@ def test_sqlite_rebuild_is_repeatable_and_tamper_fails(tmp_path: Path) -> None:
     ledger_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(LedgerError, match="invalid ledger"):
         rebuild_index(ledger_path, tmp_path / "registry" / "tampered.sqlite")
+
+
+def test_registry_verifier_passes_valid_ledger_and_index(tmp_path: Path) -> None:
+    from ctl_analysis_registry.index import rebuild_index
+    from ctl_analysis_registry.verify import verify_registry
+
+    ledger_path, _ = _record_fixture(tmp_path)
+    sqlite_path = tmp_path / "registry" / "index.sqlite"
+    rebuild_index(ledger_path, sqlite_path)
+
+    report = verify_registry(ledger_path, sqlite_path)
+
+    assert report["status"] == "PASS"
+    assert report["errors"] == []
+    assert report["coverage"]["outcome_labeling"] == "DEFERRED_PHASE_2"
+    assert report["safety"]["order_actions"] == 0
+
+
+def test_registry_verifier_blocks_tamper_and_safety_violation(tmp_path: Path) -> None:
+    from ctl_analysis_registry.verify import verify_registry
+
+    ledger_path, _ = _record_fixture(tmp_path)
+    lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    first["payload"]["safety"]["trade_write_enabled"] = True
+    lines[0] = json.dumps(first, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    ledger_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    report = verify_registry(ledger_path)
+
+    assert report["status"] == "BLOCKED"
+    assert any("hash" in error or "trade_write_enabled" in error for error in report["errors"])
