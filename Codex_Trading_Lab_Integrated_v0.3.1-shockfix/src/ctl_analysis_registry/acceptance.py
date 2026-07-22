@@ -31,6 +31,21 @@ CRITERIA = (
 )
 
 
+def worker_milestone_gate(worker_control: dict[str, Any] | None) -> str:
+    if worker_control is None:
+        return "NOT_RUN"
+    safety = worker_control.get("safety")
+    safety_ok = isinstance(safety, dict) and (
+        safety.get("trade_write_enabled") is False
+        and safety.get("auto_execution_enabled") is False
+        and safety.get("order_actions") == 0
+        and safety.get("permission_leakage") == 0
+    )
+    status_ok = worker_control.get("status") in {"COMPLETE", "PARTIAL", "DEFERRED", "STOPPED"}
+    cycles_ok = isinstance(worker_control.get("cycles"), int) and worker_control["cycles"] >= 1
+    return "PHASE2_WORKER_COMPLETE" if safety_ok and status_ok and cycles_ok else "PHASE2_WORKER_BLOCKED"
+
+
 def _counts(sqlite_path: Path) -> dict[str, int]:
     connection = sqlite3.connect(sqlite_path)
     try:
@@ -86,7 +101,7 @@ def _run_acceptance_audit_unlocked(
         criteria.append({"id": index, "name": name, "status": "PASS" if passed else "FAIL"})
 
     core_ok = parity and duplicates == 0 and safety_ok and registry_ok and all(item["status"] == "PASS" for item in criteria)
-    worker_gate = "NOT_RUN" if worker_control is None else str(worker_control.get("status", "UNKNOWN"))
+    worker_gate = worker_milestone_gate(worker_control)
     return {
         "audit_scope": "ARCHITECTURE_AND_REGISTRY_INTEGRITY",
         "core_gate": "PHASE2_CORE_COMPLETE" if core_ok else "PHASE2_CORE_BLOCKED",

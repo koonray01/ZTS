@@ -47,6 +47,7 @@ def run_worker(config: dict[str, Any], stop_file: str | Path) -> dict[str, Any]:
             ledger_path=config["ledger_path"], sqlite_path=config["sqlite_path"],
             evidence_root=config["evidence_root"], adapter=config["adapter"],
             now=now, max_jobs=int(config.get("max_jobs", 25)),
+            paths=config.get("paths"),
         )
         completed_cycles += 1
         processed += int(result.get("processed", 0))

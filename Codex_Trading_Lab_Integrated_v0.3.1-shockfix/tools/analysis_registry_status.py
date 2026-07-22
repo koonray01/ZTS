@@ -4,16 +4,20 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Sequence
 
 from ctl_analysis_registry.catchup import registry_status
+from ctl_analysis_registry.paths import DEFAULT_WORKSPACE_CONFIG, load_registry_paths
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read Analysis Registry scheduling status.")
-    parser.add_argument("--sqlite", type=Path, required=True)
-    args = parser.parse_args()
-    result = registry_status(args.sqlite, datetime.now(timezone.utc))
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    parser.add_argument("--registry-config", type=Path, default=DEFAULT_WORKSPACE_CONFIG)
+    parser.add_argument("--registry-root", type=Path)
+    args = parser.parse_args(argv)
+    paths = load_registry_paths(args.registry_config, registry_root=args.registry_root)
+    result = registry_status(paths.sqlite, datetime.now(timezone.utc))
+    print(json.dumps({**paths.metadata(), **result}, ensure_ascii=False, sort_keys=True))
     return 0 if result["status"] == "PASS" else 1
 
 

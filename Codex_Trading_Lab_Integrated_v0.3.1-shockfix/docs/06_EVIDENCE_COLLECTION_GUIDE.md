@@ -37,8 +37,8 @@ Rules:
 Analysis Performance Registry:
 
 ```text
-outputs/analysis_registry/events.jsonl  # canonical append-only event ledger
-outputs/analysis_registry/index.sqlite # disposable rebuildable read model
+D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry\events.jsonl
+D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry\index.sqlite
 ```
 
 Record an existing Zenith output without modifying its evidence bundle:
@@ -46,20 +46,16 @@ Record an existing Zenith output without modifying its evidence bundle:
 ```powershell
 $env:PYTHONPATH="src"
 python tools/record_analysis_registry.py `
-  --output-dir outputs/market_update_<timestamp> `
-  --ledger outputs/analysis_registry/events.jsonl
+  --output-dir outputs/market_update_<timestamp>
 ```
 
 Rebuild and verify the read model:
 
 ```powershell
 $env:PYTHONPATH="src"
-python tools/rebuild_analysis_registry.py `
-  --ledger outputs/analysis_registry/events.jsonl `
-  --sqlite outputs/analysis_registry/index.sqlite
-python tools/verify_analysis_registry.py `
-  --ledger outputs/analysis_registry/events.jsonl `
-  --sqlite outputs/analysis_registry/index.sqlite
+python tools/rebuild_analysis_registry.py
+python tools/verify_analysis_registry.py
+python tools/analysis_registry_status.py
 ```
 
 Registry events are append-only and hash-chained. Corrections and supersessions
@@ -68,6 +64,10 @@ append new events; they never overwrite existing events. `LIVE_MT5`, `REPLAY`,
 `PARTIAL`, `CHAT_ONLY`, and `UNMATCHED` are separate integrity tiers, and only
 `VERIFIED` records are eligible for future headline performance metrics.
 
-The registry is an audit trail and evidence index. It does not establish trading
-edge, create a Candidate, grant Permission, or execute a broker action. Outcome
-labeling and performance scoring are deferred to Phase 2.
+The Registry is an audit trail and evidence index. Phase 2 adds frozen model
+decisions, durable outcome jobs, source-bound follow-up evidence, deterministic
+labels, coverage, and descriptive performance reports. It does not establish
+trading edge, create a Candidate, grant Permission, tune policy, or execute a
+broker action. Every normal command resolves the workspace-level canonical
+configuration before writing; explicit external verification is read-only and
+labeled `NON_CANONICAL`.
