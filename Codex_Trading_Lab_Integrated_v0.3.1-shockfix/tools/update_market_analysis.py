@@ -7,6 +7,8 @@ ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT/"src"))
 from ctl_decision_core import run_decision_core
 from ctl_mt5_snapshot import EvidenceStore, MetaTrader5SnapshotAdapter, SnapshotUnavailable
 from ctl_mt5_snapshot.utils import sanitize_id
+from ctl_analysis_registry.identity import stable_id
+from ctl_analysis_registry.integration import register_analysis_and_catchup
 
 def _candidate_delta(previous: dict | None, current: dict) -> dict:
     current_items = current.get("entry_packet", {}).get("candidates", [])
@@ -45,13 +47,21 @@ def _candidate_delta(previous: dict | None, current: dict) -> dict:
 def main()->int:
     p=argparse.ArgumentParser(description="Capture fresh read-only MT5 snapshot and analyze it.")
     p.add_argument("--symbol",default="XAUUSD"); p.add_argument("--bars",type=int,default=60); p.add_argument("--output",required=True); p.add_argument("--no-h4",action="store_true"); p.add_argument("--previous-decision",type=Path)
+    p.add_argument("--registry-ledger",type=Path); p.add_argument("--registry-sqlite",type=Path); p.add_argument("--registry-evidence",type=Path); p.add_argument("--catchup-max-jobs",type=int,default=25)
     a=p.parse_args(); out=Path(a.output); out.mkdir(parents=True,exist_ok=True)
-    snap=MetaTrader5SnapshotAdapter().capture(symbol=a.symbol,run_id=sanitize_id("MARKET_ANALYSIS_"+datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")),bars=a.bars,include_h4=not a.no_h4)
+    adapter=MetaTrader5SnapshotAdapter(); now=datetime.now(timezone.utc)
+    snap=adapter.capture(symbol=a.symbol,run_id=sanitize_id("MARKET_ANALYSIS_"+now.strftime("%Y%m%dT%H%M%SZ")),bars=a.bars,include_h4=not a.no_h4)
     (out/"snapshot.json").write_text(json.dumps(snap,indent=2,sort_keys=True),encoding="utf-8"); EvidenceStore(out/"evidence").write_raw_snapshot(snap)
     decision=run_decision_core(snap); (out/"decision_state.json").write_text(json.dumps(decision,indent=2),encoding="utf-8")
     previous = json.loads(a.previous_decision.read_text(encoding="utf-8")) if a.previous_decision else None
     delta = _candidate_delta(previous, decision); (out/"candidate_delta.json").write_text(json.dumps(delta,indent=2),encoding="utf-8")
-    print(json.dumps({"snapshot_id":snap["snapshot_id"],"source":snap.get("source"),"freshness":snap.get("freshness",{}).get("status"),"qc":snap.get("qc",{}).get("decision"),"candidate_count":len(decision.get("entry_packet",{}).get("candidates",[])),"candidate_delta":delta,"trade_write_enabled":False,"auto_execution_enabled":False}))
+    registry_root=out.parent/"analysis_registry"
+    registry=register_analysis_and_catchup(
+        decision_state=decision,snapshot=snap,analysis_id=stable_id("ANALYSIS",snap["snapshot_id"],decision.get("generated_at") or snap.get("capture_time")),
+        ledger_path=a.registry_ledger or registry_root/"events.jsonl",sqlite_path=a.registry_sqlite or registry_root/"index.sqlite",
+        evidence_root=a.registry_evidence or registry_root/"evidence",adapter=adapter,now=now,max_jobs=a.catchup_max_jobs,
+    )
+    print(json.dumps({"snapshot_id":snap["snapshot_id"],"source":snap.get("source"),"freshness":snap.get("freshness",{}).get("status"),"qc":snap.get("qc",{}).get("decision"),"candidate_count":len(decision.get("entry_packet",{}).get("candidates",[])),"candidate_delta":delta,**registry,"trade_write_enabled":False,"auto_execution_enabled":False}))
     return 0 if snap.get("source")=="LIVE_MT5" and snap.get("qc",{}).get("decision")=="PASS" else 2
 if __name__=="__main__":
     try: raise SystemExit(main())

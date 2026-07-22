@@ -14,6 +14,8 @@ from .recorder import (
 from .index import rebuild_index
 from .verify import verify_registry
 from .catchup import registry_status, run_catchup
+from .integration import register_analysis_and_catchup, register_current_analysis
+from .worker import run_worker
 
 __all__ = [
     "AppendOnlyLedger",
@@ -34,6 +36,9 @@ __all__ = [
     "verify_registry",
     "run_catchup",
     "registry_status",
+    "register_current_analysis",
+    "register_analysis_and_catchup",
+    "run_worker",
     "validate_event_chain",
     "validate_phase2_payload",
     "PHASE2_EVENT_TYPES",

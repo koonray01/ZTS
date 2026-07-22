@@ -82,6 +82,17 @@ def test_incomplete_zenith_scenario_is_explicitly_non_scorable() -> None:
     assert "MISSING_EVENT_STEPS" in frozen[0]["non_scorable_reasons"]
 
 
+def test_missing_horizon_is_recorded_as_unspecified_but_never_scorable() -> None:
+    state = _decision_state()
+    state["scenario_packet"]["scenarios"][0].pop("horizons")
+
+    frozen = freeze_zenith_decisions(state, _snapshot(), "ANALYSIS_1")
+
+    assert frozen[0]["horizons"] == ["UNSPECIFIED"]
+    assert frozen[0]["quality"]["scorable_status"] == "NON_SCORABLE"
+    assert "MISSING_HORIZONS" in frozen[0]["non_scorable_reasons"]
+
+
 def test_measurable_zenith_candidate_freezes_single_target_setup() -> None:
     state = _decision_state()
     state["entry_packet"]["candidates"] = [

@@ -151,7 +151,7 @@ def _freeze_claim(
         "action": _action(claim.get("action"), "WATCH"),
         "role": _role(claim.get("role") or claim.get("rank")),
         "decision_time": decision_time, "evaluation_start": decision_time,
-        "horizons": horizons, "labeling_policy_version": policy,
+        "horizons": horizons or ["UNSPECIFIED"], "labeling_policy_version": policy,
         "engine_version": engine_version,
         "timeframe_scope": [str(item) for item in claim.get("timeframe_scope", []) if item] or sorted({str(item.get("timeframe")) for item in claim.get("event_steps", []) if isinstance(item, dict) and item.get("timeframe")}) or ["UNKNOWN"],
         "rules": rules,
