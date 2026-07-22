@@ -22,6 +22,7 @@ from .paths import (
     load_registry_paths,
     resolve_registry_paths,
 )
+from .coordination import acquire_registry_writer
 from .worker import run_worker
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "RegistryPaths",
     "load_registry_paths",
     "resolve_registry_paths",
+    "acquire_registry_writer",
     "run_worker",
     "validate_event_chain",
     "validate_phase2_payload",

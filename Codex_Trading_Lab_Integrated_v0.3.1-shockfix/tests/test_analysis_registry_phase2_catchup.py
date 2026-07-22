@@ -7,6 +7,7 @@ from ctl_analysis_registry.catchup import registry_status, run_catchup
 from ctl_analysis_registry.events import build_v2_event
 from ctl_analysis_registry.index import rebuild_index
 from ctl_analysis_registry.lease import RegistryWriterLease
+from ctl_analysis_registry.paths import resolve_registry_paths
 from ctl_analysis_registry.ledger import AppendOnlyLedger
 from ctl_analysis_registry.scheduler import schedule_jobs
 
@@ -103,7 +104,8 @@ def test_max_jobs_returns_partial_with_remaining_count(tmp_path: Path) -> None:
 
 def test_catchup_defers_when_writer_lease_is_held(tmp_path: Path) -> None:
     paths = _registry(tmp_path)
-    lease = RegistryWriterLease.acquire(paths["ledger_path"].with_suffix(".lease.json"), "other", 30, now=NOW + timedelta(minutes=20))
+    registry_paths = resolve_registry_paths(paths["ledger_path"].parent)
+    lease = RegistryWriterLease.acquire(registry_paths.lease, "other", 30, now=NOW + timedelta(minutes=20))
     try:
         result = run_catchup(**paths, adapter=_Adapter(), now=NOW + timedelta(minutes=20), max_jobs=1)
     finally:
