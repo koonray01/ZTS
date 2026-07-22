@@ -4,7 +4,10 @@
 
 Make every normal-language current-market analysis, market update, two-way comparison, and setup request use one consistent read-only workflow. The workflow captures fresh evidence, keeps Zenith and external reasoning separately attributable, records measurable decisions in the Analysis Performance Registry, and performs bounded catch-up automatically.
 
-This design changes agent and skill instructions plus the minimum orchestration integration needed to create and persist structured Chat Model envelopes. It does not enable background services, Part 3, permission, or broker writes.
+This revision changes agent and skill instructions only. It documents the
+Phase 2 implementation that is currently available and must not imply that a
+missing CLI capability exists. It does not enable background services, Part 3,
+permission, broker writes, or policy changes.
 
 ## Selected Architecture
 
@@ -18,10 +21,13 @@ Responsibilities:
 - `ctl-scenario-planner`: scenario construction and measurable prediction fields.
 - `ctl-entry-evaluator`: Candidate truth and setup classification.
 - `ctl-evidence-audit`: evidence, Registry, and audit verification.
-- `update_market_analysis.py`: canonical foreground execution path, structured
-  Chat-envelope input, automatic Registry recording, and bounded catch-up.
+- workspace launcher: canonical foreground Zenith execution path, automatic
+  Registry recording, and bounded catch-up;
 - `ctl_analysis_registry.chat_model`: validation and freezing of Chat Model
-  predictions derived from decision-time evidence.
+  predictions derived from decision-time evidence. Until a dedicated
+  dual-system CLI exists, the orchestration skill must report the Chat
+  registration path it used and must never imply that the Zenith launcher
+  accepted a Chat envelope.
 
 ## Trigger Scope
 
@@ -57,10 +63,9 @@ Historical audit-only, replay, position-management, and explicit Part 3 requests
 
 ## Canonical Runtime Storage
 
-Live analysis uses one durable Registry root relative to the selected canonical
-runtime checkout:
+Live analysis uses one workstation-level durable Registry root:
 
-`outputs/analysis_registry/`
+`D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry`
 
 It contains the ledger, SQLite projection, follow-up evidence, operation log,
 and writer lease. Changing the per-analysis output directory must not change
@@ -68,9 +73,10 @@ the Registry root. Replay and tests must use explicitly separate paths and
 retain their source class; they cannot write into the live Registry.
 
 The operator response must show the resolved Registry root. If multiple Git
-worktrees exist, the workflow must not silently create independent live
-histories. The canonical runtime checkout/path must be selected explicitly or
-reported as `REGISTRY_PATH_AMBIGUOUS`.
+worktrees exist, the workflow must resolve the implementation checkout from
+`runtime/analysis_registry/registry.json`; it must not silently create
+independent live histories. Missing or invalid canonical configuration is
+`REGISTRY_CONFIG_INVALID`, not permission to fall back locally.
 
 ## Registry Contract
 
@@ -122,6 +128,8 @@ The workflow reports these independently:
 - `registry_recording_status`;
 - `catchup_status`;
 - `safety_status`.
+- `phase2_core_gate` and `phase2_worker_gate` when an acceptance audit is
+  requested.
 
 For example, a valid Zenith read with a Registry write failure is
 `ANALYSIS_COMPLETE` plus `REGISTRY_BLOCKED`; it is not an end-to-end success
@@ -142,6 +150,10 @@ Every applicable response uses this order:
 
 The output distinguishes runtime facts, sourced external facts, interpretation, and unknowns.
 
+For performance review, capability and evidence coverage remain separate.
+`PHASE2_ENABLED_NO_EVENTS` or `INSUFFICIENT_EVIDENCE` is not a failure and is
+never translated into a positive or negative edge claim.
+
 ## Verification Strategy
 
 Skill pressure scenarios verify that an agent:
@@ -152,6 +164,8 @@ Skill pressure scenarios verify that an agent:
 - does not invent a scorable job when trigger, invalidation, horizon, or criteria are missing;
 - reports external-provider and Registry failures explicitly;
 - runs bounded catch-up without claiming a background daemon;
+- resolves the same canonical Registry from another session or worktree;
+- distinguishes Phase 2 capability from outcome coverage and performance;
 - preserves zero broker writes and Permission separation.
 
 Repository validation checks frontmatter, required sections, cross-references, command routing, and prohibited claims. Existing full tests and contract validation must remain green.
