@@ -1,7 +1,7 @@
 # Analysis Performance Registry Phase 2: Model Outcome Evaluation Design
 
-**Date:** 2026-07-22  
-**Status:** Approved design pending written-spec review  
+**Date:** 2026-07-22
+**Status:** Approved design pending written-spec review
 **Scope:** Model outcomes for analyses produced in chat and Zenith; manual trade outcomes are deferred
 
 ## 1. Objective
