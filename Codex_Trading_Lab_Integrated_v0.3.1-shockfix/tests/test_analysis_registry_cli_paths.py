@@ -189,3 +189,16 @@ def test_verify_retains_explicit_read_only_inspection_mode(
     response = json.loads(capsys.readouterr().out)
     assert response["registry_mode"] == "NON_CANONICAL"
     assert observed["paths"] == (external / "events.jsonl", external / "index.sqlite")
+
+
+def test_verify_does_not_label_wrong_filename_in_canonical_root_as_canonical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _config(tmp_path)
+    wrong = tmp_path / "canonical" / "other.jsonl"
+    monkeypatch.setattr(verify_cli, "verify_registry", lambda ledger, sqlite: {"status": "PASS"})
+
+    assert verify_cli.main(["--registry-config", str(config), "--ledger", str(wrong)]) == 0
+    response = json.loads(capsys.readouterr().out)
+
+    assert response["registry_mode"] == "NON_CANONICAL"

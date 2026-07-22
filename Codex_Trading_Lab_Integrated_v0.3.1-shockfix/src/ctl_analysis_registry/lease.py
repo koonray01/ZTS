@@ -111,9 +111,12 @@ class RegistryWriterLease:
             "heartbeat_at": acquired_at.isoformat(),
             "ttl_seconds": ttl_seconds,
         }
+        descriptor: int | None = None
+        created_by_attempt = False
         try:
             try:
                 descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                created_by_attempt = True
             except FileExistsError:
                 try:
                     current = json.loads(path.read_text(encoding="utf-8"))
@@ -136,9 +139,18 @@ class RegistryWriterLease:
                     )
                 path.unlink()
                 descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                created_by_attempt = True
             _write_descriptor(descriptor, payload)
+            descriptor = None
             return cls(path=path, owner_id=owner_id, acquired_at=acquired_at, ttl_seconds=ttl_seconds, _guard=guard)
         except Exception:
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+            if created_by_attempt:
+                path.unlink(missing_ok=True)
             _release_os_guard(guard)
             raise
 
