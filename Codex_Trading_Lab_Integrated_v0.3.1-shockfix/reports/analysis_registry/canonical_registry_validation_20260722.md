@@ -20,8 +20,9 @@ deleted.
 
 ## Verification
 
-The focused Registry acceptance matrix passed: `115 passed in 4.52s`.
-Contract validation passed with 39 schemas. Launcher `-ResolveOnly` returned the
+The final complete repository suite passed: `203 passed in 7.94s`. Integrated
+validation passed all 9 checks, and contract validation passed with 39 schemas.
+Launcher `-ResolveOnly` returned the
 same canonical Registry and implementation roots when invoked from the primary
 checkout and the linked worktree. The resolve-only path did not call MT5.
 
