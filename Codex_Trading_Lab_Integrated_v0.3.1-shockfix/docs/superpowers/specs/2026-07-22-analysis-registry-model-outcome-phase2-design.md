@@ -1,7 +1,7 @@
 # Analysis Performance Registry Phase 2: Model Outcome Evaluation Design
 
 **Date:** 2026-07-22
-**Status:** Revised after second technical review; pending final user approval
+**Status:** Final design candidate; pending user approval for implementation planning
 **Scope:** Model outcomes for analyses produced in chat and Zenith; manual trade outcomes are deferred
 
 ## 1. Objective
@@ -15,6 +15,13 @@ WAIT/HOLD/ABSTAIN decisions without requiring a continuously running process.
 The phase evaluates what the model declared. It does not infer whether the user
 placed a trade, and it does not mix model outcomes with later manual execution
 records.
+
+Phase 2 scores two independently attributable systems: `ZENITH` for structured
+Decision Core output and `CHAT_MODEL` for a structured prediction envelope
+frozen in the same response path as the user-facing analysis. External news and
+research may be evidence for `CHAT_MODEL`; `EXTERNAL_ANALYST` and `COMPARISON`
+ingestion remain Phase 3 capabilities. The two systems never share a performance
+denominator.
 
 ## 2. Delivery boundary
 
@@ -77,6 +84,8 @@ Every scorable conclusion is frozen before follow-up evidence is visible. The
 contract contains:
 
 - `decision_id`, `analysis_id`, `view_id`, and decision type;
+- `prediction_family_id`, `semantic_opportunity_id`, and `variant_id` when
+  applicable;
 - direction, action, and primary/alternative role when applicable;
 - decision time, reference price, and symbol;
 - one or more explicit evaluation horizons;
@@ -108,7 +117,12 @@ not at decision time. An unconditional decision starts at decision time.
 
 Reference-price semantics are also frozen:
 
-- directional forecasts use decision-time `mid`;
+- unconditional directional forecasts use decision-time `mid` and
+  decision-time ATR;
+- conditional directional forecasts freeze
+  `reference_price_method=ACTIVATION_BAR_CLOSE_MID` and the ATR configuration;
+  `DECISION_ACTIVATED` appends the activation-bar close mid and activation-time
+  ATR without changing the frozen method;
 - BUY entry touch uses `ask`, while BUY TP/SL uses `bid`;
 - SELL entry touch uses `bid`, while SELL TP/SL uses `ask`;
 - `MID_ONLY_PROXY` is permitted only when bid/ask history is unavailable and
@@ -132,9 +146,21 @@ These tiers remain separate cohorts. `BAR_SPREAD_RECONSTRUCTED` is useful for
 model diagnostics but is not described as actual-fill or execution-realistic
 evidence. `MID_ONLY_PROXY` cannot resolve a setup outcome.
 
+Tick history is supplemental precedence evidence, not a Core dependency.
+Activation, horizons, and terminal outcomes remain closed-bar based. When tick
+history is unavailable, M1 refinement is attempted and unresolved ordering stays
+`AMBIGUOUS_SAME_BAR`; Core completion never depends on broker tick retention.
+
 A conclusion missing measurable criteria is `NON_SCORABLE`. Frozen fields are
 never overwritten. A correction or supersession is appended as a new event and
 preserves the original record.
+
+Corrections before `evaluation_start` may create a new decision revision.
+Changes to direction, activation, level, horizon, target, ATR configuration, or
+labeling policy are `MATERIAL_REVISION` and always receive a new decision ID.
+Corrections at or after `evaluation_start` are audit-only and cannot change the
+original-policy outcome. Typographical changes that do not alter semantics are
+`NON_MATERIAL_CORRECTION`.
 
 ## 5. Durable scheduling and non-continuous operation
 
@@ -175,6 +201,7 @@ evaluation_deadline = evaluation_start + horizon
 terminal_bar = first eligible bar whose close_time >= evaluation_deadline
 terminal_price = terminal_bar.close
 excursion_window = eligible closed bars from evaluation_start through terminal_bar
+max_terminal_lag = one source-timeframe duration
 ```
 
 The excursion window begins at `evaluation_start` for every decision type.
@@ -185,6 +212,14 @@ When source bars omit `open_time`, the collector may derive it only from a
 declared fixed timeframe and must record the derivation. Horizons expressed as
 market sessions must declare an explicit calendar and timezone; Phase 2
 initially supports duration horizons only.
+
+The terminal bar must satisfy
+`terminal_bar.close_time <= evaluation_deadline + max_terminal_lag`. Retrieval
+may occur much later during catch-up; retrieval time does not alter eligibility.
+If a declared market closure leaves no terminal bar inside this limit, the job
+is `INSUFFICIENT_FOLLOWUP` with reason
+`MARKET_CLOSURE_NO_TERMINAL_BAR`. A known closure is not classified as corrupt
+history and never extends the horizon implicitly.
 
 ### 5.2 Single-writer safety
 
@@ -253,16 +288,19 @@ ATR-normalized thresholds so immaterial movement is not counted as accuracy.
 The initial immutable policy is `DIRECTIONAL_TERMINAL_ATR_V1`:
 
 ```text
-signed_return_atr = direction_sign * (terminal_price - reference_price) / decision_time_atr
+signed_return_atr = direction_sign * (terminal_price - evaluation_reference_price) / evaluation_atr
 CORRECT   when signed_return_atr >= 0.25
 INCORRECT when signed_return_atr <= -0.25
 NEUTRAL   when -0.25 < signed_return_atr < 0.25
 ```
 
-`AMBIGUOUS` is reserved for evidence conflict or insufficient temporal
-resolution, not small movement. MFE and MAE are reported as diagnostics and do
-not change the V1 terminal label. Missing or non-positive decision-time ATR
-makes the decision `NON_SCORABLE` under this policy.
+For unconditional decisions, `evaluation_reference_price` and `evaluation_atr`
+come from decision time. For conditional decisions, they come from the frozen
+activation-price method and activation-time ATR. `AMBIGUOUS` is reserved for
+evidence conflict or insufficient temporal resolution, not small movement. MFE
+and MAE are reported as diagnostics and do not change the V1 terminal label.
+Missing or non-positive evaluation ATR makes the decision `NON_SCORABLE` under
+this policy.
 
 ### 7.2 Scenario outcomes
 
@@ -295,6 +333,12 @@ TP/SL precedence, MFE, MAE, realized R, worst-realistic-fill R, time to entry,
 time to outcome, and expiry. Results are `TP_FIRST`, `SL_FIRST`,
 `ENTRY_NOT_TRIGGERED`, `EXPIRED_UNTRIGGERED`, `AMBIGUOUS_SAME_BAR`, `UNRESOLVED`,
 or `INVALID_INPUT`.
+
+The Phase 2 V1 scoring policy is `SINGLE_TARGET`. A scorable setup freezes one
+entry, one stop, one scoring target, and one expiry. Additional targets are
+recorded only as excursion milestones and do not affect realized R. A setup
+without an explicit scoring target is `NON_SCORABLE`. Target ladders, partial
+closes, and stop-management assumptions are deferred with manual trade outcomes.
 
 ### 7.4 WAIT/HOLD/ABSTAIN outcomes
 
@@ -355,6 +399,13 @@ reason, and audit error. Performance conclusions become
 Every rate shows numerator, denominator, pending count, unresolved count,
 excluded count, cohort identity, and uncertainty appropriate to the sample.
 Only eligible `VERIFIED` model outcomes enter headline metrics.
+
+Statistical units are explicit. Directional, scenario, setup, and abstention
+outcomes remain separate metric families. Each horizon has its own denominator
+and is never pooled into a single accuracy rate. Setup variants may appear in
+diagnostic reports, but opportunity-level headline metrics count one unique
+`semantic_opportunity_id`; reports disclose both raw variant records and unique
+opportunities. `ZENITH` and `CHAT_MODEL` cohorts remain separate.
 
 Descriptive counts are publishable from the first resolved record. Rates must
 always include Wilson 95% confidence intervals when their outcome is binary.
@@ -448,7 +499,10 @@ Tests cover:
 
 - schema and frozen-field validation;
 - unconditional and closed-bar-activated conditional decisions;
+- activation-time conditional reference price and ATR binding;
 - bid/ask/mid reference-price semantics and proxy-cohort separation;
+- market-closure terminal-lag handling;
+- metric-family, horizon, variant, and semantic-opportunity deduplication;
 - stable job identity and duplicate suppression;
 - restart and overdue-job catch-up;
 - strict post-evaluation-start closed-bar selection;
@@ -456,11 +510,14 @@ Tests cover:
 - directional thresholds and multi-horizon independence;
 - ordered scenario event evaluation;
 - bid/ask-aware setup outcomes and same-bar ambiguity;
+- single-target setup scoring and non-scoring excursion milestones;
 - abstention controls without retrospective setup invention;
 - invalid-input and insufficient-follow-up exclusion;
 - deterministic SQLite rebuild parity;
 - report numerator/denominator drill-down;
 - structured chat-envelope registration and `ANALYSIS_NOT_REGISTERED` handling;
+- independent `ZENITH` and `CHAT_MODEL` attribution;
+- material-revision timing and audit-only late corrections;
 - append/fsync failure and partial-tail fail-closed behavior;
 - background-worker restart safety;
 - zero order actions and zero permission leakage.
@@ -520,6 +577,17 @@ Phase 2 is complete when:
 24. JSONL is appended and fsynced under the writer lease and is never rewritten
     during normal operation.
 25. Unregistered chat prose cannot be reconstructed into a scored prediction.
+26. Conditional outcomes use activation-time reference price and ATR while
+    unconditional outcomes use decision-time values.
+27. A duration horizon cannot cross its maximum terminal lag, including across
+    a market closure.
+28. Headline setup metrics deduplicate semantic opportunities and never pool
+    variants or horizons as independent observations.
+29. Phase 2 V1 setup realized R uses exactly one frozen scoring target.
+30. Material revisions receive a new decision ID and late corrections cannot
+    change an original-policy outcome.
+31. `ZENITH` and `CHAT_MODEL` reports remain independently attributable with
+    separate denominators.
 
 ## 17. Deferred follow-on
 
