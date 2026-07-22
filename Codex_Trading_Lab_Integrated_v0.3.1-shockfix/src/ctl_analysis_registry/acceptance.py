@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .index import rebuild_index
 from .ledger import AppendOnlyLedger
 from .verify import verify_registry
+from .coordination import acquire_registry_writer
+from .identity import stable_id
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 
 
 CRITERIA = (
@@ -49,7 +53,7 @@ def _duplicate_outcomes(sqlite_path: Path) -> int:
         connection.close()
 
 
-def run_acceptance_audit(
+def _run_acceptance_audit_unlocked(
     ledger_path: str | Path,
     sqlite_path: str | Path,
     worker_control: dict[str, Any] | None = None,
@@ -97,6 +101,31 @@ def run_acceptance_audit(
         "counts": counts,
         "criteria": criteria,
     }
+
+
+def run_acceptance_audit(
+    ledger_path: str | Path,
+    sqlite_path: str | Path,
+    worker_control: dict[str, Any] | None = None,
+    *,
+    paths: RegistryPaths | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Rebuild and audit while holding the canonical writer coordination lock."""
+
+    ledger_path, sqlite_path = Path(ledger_path), Path(sqlite_path)
+    paths = paths or resolve_registry_paths(ledger_path.parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path)
+    audit_time = now or datetime.now(timezone.utc)
+    lease = acquire_registry_writer(
+        paths,
+        stable_id("REGISTRY_ACCEPTANCE", audit_time.isoformat()),
+        audit_time,
+    )
+    try:
+        return _run_acceptance_audit_unlocked(ledger_path, sqlite_path, worker_control)
+    finally:
+        lease.release()
 
 
 def write_acceptance_artifacts(result: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path]:

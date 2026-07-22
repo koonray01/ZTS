@@ -15,8 +15,10 @@ from .events import build_v2_event
 from .followup import collect_followup
 from .identity import stable_id
 from .index import rebuild_index
-from .lease import LeaseBusyError, RegistryWriterLease
+from .coordination import acquire_registry_writer
+from .lease import LeaseBusyError
 from .ledger import AppendOnlyLedger
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .scenario import label_scenario
 from .scheduler import due_jobs
 from .setup import label_setup
@@ -125,16 +127,15 @@ def run_catchup(
     adapter: Any,
     now: datetime,
     max_jobs: int,
+    paths: RegistryPaths | None = None,
 ) -> dict[str, Any]:
     ledger_path, sqlite_path = Path(ledger_path), Path(sqlite_path)
     if max_jobs < 0:
         raise ValueError("max_jobs cannot be negative")
-    lease_path = ledger_path.with_suffix(".lease.json")
+    paths = paths or resolve_registry_paths(ledger_path.parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path, evidence_root=evidence_root)
     try:
-        lease = RegistryWriterLease.acquire(
-            lease_path, stable_id("CATCHUP_OWNER", _iso(now)), 60, now=now,
-            operation_log=ledger_path.with_suffix(".operations.jsonl"),
-        )
+        lease = acquire_registry_writer(paths, stable_id("CATCHUP_OWNER", _iso(now)), now)
     except LeaseBusyError:
         return {"status": "DEFERRED", "processed": 0, "resolved": 0, "remaining": 0, "duplicate_outcomes": 0, "safety": deepcopy(SAFETY)}
     processed = resolved = duplicate_outcomes = failures = 0

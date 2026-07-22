@@ -12,8 +12,9 @@ from .chat_model import freeze_chat_model_view
 from .events import build_v2_event
 from .identity import stable_id
 from .index import rebuild_index
-from .lease import RegistryWriterLease
+from .coordination import acquire_registry_writer
 from .ledger import AppendOnlyLedger
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .recorder import freeze_zenith_decisions, record_frozen_decisions
 from .scheduler import schedule_jobs
 
@@ -27,11 +28,13 @@ def register_current_analysis(
     sqlite_path: str | Path,
     now: datetime,
     chat_envelope: dict[str, Any] | None = None,
+    paths: RegistryPaths | None = None,
 ) -> dict[str, Any]:
     ledger_path, sqlite_path = Path(ledger_path), Path(sqlite_path)
-    lease = RegistryWriterLease.acquire(
-        ledger_path.with_suffix(".lease.json"), stable_id("ANALYSIS_REGISTRY_WRITER", analysis_id, now.isoformat()),
-        60, now=now, operation_log=ledger_path.with_suffix(".operations.jsonl"),
+    paths = paths or resolve_registry_paths(ledger_path.parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path)
+    lease = acquire_registry_writer(
+        paths, stable_id("ANALYSIS_REGISTRY_WRITER", analysis_id, now.isoformat()), now,
     )
     try:
         decisions = freeze_zenith_decisions(decision_state, snapshot, analysis_id)
@@ -95,12 +98,16 @@ def register_analysis_and_catchup(
     now: datetime,
     max_jobs: int,
     chat_envelope: dict[str, Any] | None = None,
+    paths: RegistryPaths | None = None,
 ) -> dict[str, Any]:
+    if paths is not None:
+        validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path, evidence_root=evidence_root)
     try:
         recording = register_current_analysis(
             decision_state=decision_state, snapshot=snapshot, analysis_id=analysis_id,
             ledger_path=ledger_path, sqlite_path=sqlite_path, now=now,
             chat_envelope=chat_envelope,
+            paths=paths,
         )
     except Exception as exc:
         return {
@@ -112,6 +119,7 @@ def register_analysis_and_catchup(
     catchup = run_catchup(
         ledger_path=ledger_path, sqlite_path=sqlite_path, evidence_root=evidence_root,
         adapter=adapter, now=now, max_jobs=max_jobs,
+        paths=paths,
     )
     return {
         "registry_recording_status": "RECORDED", "registered_decision_ids": recording["decision_ids"],

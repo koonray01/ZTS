@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from .ledger import AppendOnlyLedger
-from .lease import RegistryWriterLease
+from .coordination import acquire_registry_writer
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .recorder import record_frozen_decisions
 
 
@@ -61,6 +63,7 @@ def backfill_eligible(
     ledger_path: str | Path,
     *,
     dry_run: bool = True,
+    paths: RegistryPaths | None = None,
 ) -> dict[str, Any]:
     """Append only a supplied, already typed frozen decision after classification."""
 
@@ -83,8 +86,9 @@ def backfill_eligible(
         result["proposed_event_ids"] = [frozen.get("decision_id")]
         return result
 
-    lease_path = Path(ledger_path).with_suffix(Path(ledger_path).suffix + ".lease")
-    lease = RegistryWriterLease.acquire(lease_path, f"backfill-{uuid4().hex}", 60)
+    paths = paths or resolve_registry_paths(Path(ledger_path).parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path)
+    lease = acquire_registry_writer(paths, f"backfill-{uuid4().hex}", datetime.now(timezone.utc))
     try:
         event_ids = record_frozen_decisions(ledger, [frozen])
     finally:

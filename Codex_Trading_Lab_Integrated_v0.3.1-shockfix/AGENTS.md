@@ -30,6 +30,14 @@
 
 ## Natural-language command flow
 
+Any current-market analysis that records into the Analysis Performance
+Registry must run through the workspace launcher
+`D:\MyWork\AlgoTrade\OS\Zenith Trading System\tools\run_zenith_analysis.ps1`.
+The launcher is the canonical session-independent entry point. Do not derive a
+Registry path from the checkout, worktree, current directory, or analysis
+output. Direct historical-checkout tools are diagnostic-only and must not
+write the canonical Registry.
+
 The agent must understand these Thai/English intents and execute the corresponding read-only workflow:
 
 1. **Start Session** — initialize XAUUSD Manual Only, validate connection/source/freshness/QC/state/locks/safety, then read M5, M15, H1 and H4 when available. Do not run Part 3 yet.

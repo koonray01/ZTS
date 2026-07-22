@@ -5,6 +5,11 @@ from pathlib import Path
 from ctl_analysis_registry.acceptance import run_acceptance_audit
 from ctl_analysis_registry.acceptance import write_acceptance_artifacts
 from ctl_analysis_registry.index import rebuild_index
+from ctl_analysis_registry.coordination import acquire_registry_writer
+from ctl_analysis_registry.lease import LeaseBusyError
+from ctl_analysis_registry.paths import resolve_registry_paths
+from datetime import datetime, timezone
+import pytest
 
 
 def test_phase2_core_acceptance_reconciles_and_has_zero_safety_leakage(tmp_path: Path) -> None:
@@ -47,3 +52,16 @@ def test_acceptance_artifacts_are_idempotent_and_reject_collisions(tmp_path: Pat
         pass
     else:
         raise AssertionError("changed immutable audit should collide")
+
+
+def test_acceptance_index_rebuild_contends_on_canonical_writer_lease(tmp_path: Path) -> None:
+    paths = resolve_registry_paths(tmp_path / "registry")
+    paths.root.mkdir(parents=True)
+    paths.ledger.write_text("", encoding="utf-8")
+    now = datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc)
+    held = acquire_registry_writer(paths, "other", now)
+    try:
+        with pytest.raises(LeaseBusyError):
+            run_acceptance_audit(paths.ledger, paths.sqlite, paths=paths, now=now)
+    finally:
+        held.release()

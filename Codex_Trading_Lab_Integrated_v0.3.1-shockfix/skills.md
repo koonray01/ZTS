@@ -4,6 +4,11 @@ This file defines the operational skills exposed through ordinary user language.
 
 ## Core skills
 
+Registry-producing live analysis uses the workspace-level
+`tools/run_zenith_analysis.ps1` launcher. This rule applies across sessions,
+branches, and worktrees; never create an output-local `analysis_registry` as a
+fallback.
+
 - `start_live_session`: XAUUSD, Manual Only; validate MT5, LIVE_MT5 source, freshness, QC, session state, locks, and disabled write/execution flags; read M5/M15/H1/H4.
 - `read_market`: produce FACT / INTERPRETATION / UNKNOWN market summary with structure, regime, volatility, zones, liquidity, scenarios, waits, prohibitions, and candidate status.
 - `check_candidates`: return only valid current candidates and all required fields; never synthesize a signal.
