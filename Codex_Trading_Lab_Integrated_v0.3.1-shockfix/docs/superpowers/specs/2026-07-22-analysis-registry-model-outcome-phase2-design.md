@@ -1,13 +1,14 @@
 # Analysis Performance Registry Phase 2: Model Outcome Evaluation Design
 
 **Date:** 2026-07-22
-**Status:** Revised after technical review; pending final user approval
+**Status:** Revised after second technical review; pending final user approval
 **Scope:** Model outcomes for analyses produced in chat and Zenith; manual trade outcomes are deferred
 
 ## 1. Objective
 
 Extend the append-only Analysis Performance Registry so every eligible frozen
-analysis can be evaluated against independent future closed-bar evidence. Phase 2
+analysis can be evaluated against outcome-blind, source-bound future closed-bar
+evidence. Phase 2
 must evaluate directional forecasts, ordered scenarios, entry setups, and
 WAIT/HOLD/ABSTAIN decisions without requiring a continuously running process.
 
@@ -21,7 +22,7 @@ Phase 2 includes:
 
 - canonical frozen decision contracts;
 - durable horizon scheduling and restart-safe catch-up;
-- independent follow-up evidence collection;
+- outcome-blind, source-bound follow-up evidence collection;
 - directional, scenario, setup, and abstention labelers;
 - coverage and model-performance reports;
 - automatic catch-up during the normal analysis workflow;
@@ -49,7 +50,7 @@ Frozen Decision Contract
 Durable Horizon Scheduler
         |
         v
-Independent Closed-Bar Evidence
+Outcome-Blind Source-Bound Follow-up Evidence
         |
         v
 Typed Outcome Labelers
@@ -66,6 +67,9 @@ Coverage Report --> Model Performance Report
 JSONL remains the append-only source of truth. SQLite is a disposable,
 deterministically rebuildable projection used to find due work and query reports.
 Evidence bundles store source snapshots, follow-up bars, manifests, and hashes.
+Here, outcome-blind means the evidence collector does not inspect the predicted
+label while collecting bars; it does not imply an independent market-data
+vendor.
 
 ## 4. Frozen Decision Contract
 
@@ -84,9 +88,49 @@ contract contains:
 - source QC, freshness, integrity tier, and scorable status.
 
 The canonical decision types are `DIRECTIONAL`, `SCENARIO`, `SETUP`, and
-`ABSTENTION`. Phase 1 `ACTION_PLAN` records remain readable but are not promoted
-to a Phase 2 type unless their decision-time payload already satisfies the full
-contract. The labeling policy version is frozen with the decision.
+`ABSTENTION`. A directional decision additionally declares
+`UNCONDITIONAL_DIRECTIONAL` or `CONDITIONAL_DIRECTIONAL`. Phase 1 `ACTION_PLAN`
+records remain readable but are not promoted to a Phase 2 type unless their
+decision-time payload already satisfies the full contract. The labeling policy
+version is frozen with the decision.
+
+Conditional decisions freeze a machine-readable activation condition and use:
+
+```text
+RECORDED -> WAITING_ACTIVATION
+         -> ACTIVATED -> FOLLOWUP_PENDING -> RESOLVED
+         -> EXPIRED_UNTRIGGERED
+         -> INVALIDATED_BEFORE_ACTIVATION
+```
+
+Their evaluation clock starts at the first qualifying closed-bar activation,
+not at decision time. An unconditional decision starts at decision time.
+
+Reference-price semantics are also frozen:
+
+- directional forecasts use decision-time `mid`;
+- BUY entry touch uses `ask`, while BUY TP/SL uses `bid`;
+- SELL entry touch uses `bid`, while SELL TP/SL uses `ask`;
+- `MID_ONLY_PROXY` is permitted only when bid/ask history is unavailable and
+  remains a separate, non-bid/ask-aware cohort;
+- decision-time and follow-up spread provenance remain explicit.
+
+MT5 rate bars are treated as bid OHLC. When a bar contains validated
+`spread_points` and the frozen symbol `point`, ask OHLC is reconstructed as
+`bid + spread_points * point`, and mid as the average of bid and reconstructed
+ask. A missing or invalid bar spread forces `MID_ONLY_PROXY` for directional
+evaluation and prevents that bar from resolving a bid/ask-aware setup outcome.
+
+Setup evidence declares one execution-price quality tier:
+
+- `TRUE_BID_ASK_TICKS` when source-bound tick history proves event order;
+- `BAR_SPREAD_RECONSTRUCTED` when ask prices are approximated from bid OHLC and
+  bar spread;
+- `MID_ONLY_PROXY` when neither bid/ask ticks nor valid bar spread exists.
+
+These tiers remain separate cohorts. `BAR_SPREAD_RECONSTRUCTED` is useful for
+model diagnostics but is not described as actual-fill or execution-realistic
+evidence. `MID_ONLY_PROXY` cannot resolve a setup outcome.
 
 A conclusion missing measurable criteria is `NON_SCORABLE`. Frozen fields are
 never overwritten. A correction or supersession is appended as a new event and
@@ -125,31 +169,42 @@ prevented by the stable job identity and append-only idempotency checks.
 Every duration horizon uses one deterministic clock policy:
 
 ```text
-evaluation_start = decision_time
-evaluation_deadline = decision_time + horizon
+evaluation_start = decision_time for unconditional decisions
+evaluation_start = activation_bar.close_time for conditional decisions
+evaluation_deadline = evaluation_start + horizon
 terminal_bar = first eligible bar whose close_time >= evaluation_deadline
 terminal_price = terminal_bar.close
-excursion_window = eligible closed bars after decision_time through terminal_bar
+excursion_window = eligible closed bars from evaluation_start through terminal_bar
 ```
 
-The bar containing the decision is excluded even if it closes after the
-decision. Horizons expressed as market sessions must declare an explicit
-calendar and timezone; Phase 2 initially supports duration horizons only.
+The excursion window begins at `evaluation_start` for every decision type.
+
+An eligible bar must have `open_time >= evaluation_start`; a bar that contains
+the decision or activation instant is excluded even if it closes afterward.
+When source bars omit `open_time`, the collector may derive it only from a
+declared fixed timeframe and must record the derivation. Horizons expressed as
+market sessions must declare an explicit calendar and timezone; Phase 2
+initially supports duration horizons only.
 
 ### 5.2 Single-writer safety
 
 Analysis commands, explicit catch-up commands, and the background worker share
 one Registry writer lease. The lease has an owner ID, acquisition time,
 heartbeat, and deterministic expiry/recovery policy. Only the lease holder may
-append events or replace the SQLite projection. Event append and projection
-publication use temporary artifacts plus atomic replacement where the platform
-supports it. A lease conflict defers catch-up; it never creates a second writer
-or blocks collection of a new read-only market snapshot.
+append events or replace the SQLite projection. JSONL is never rewritten: the
+writer appends exactly one complete line, flushes and fsyncs it, then verifies
+the stored event hash while still holding the lease. SQLite is rebuilt into a
+temporary database, parity-checked against JSONL, and atomically replaced.
+Evidence files use temporary creation, hashing, and atomic rename. A partial
+JSONL tail blocks normal mutation and requires an explicit audited recovery;
+the verifier never truncates it silently. A lease conflict defers catch-up; it
+never creates a second writer or blocks collection of a new read-only market
+snapshot.
 
 ## 6. Follow-up evidence rules
 
-Only bars whose closed timestamps are strictly after the decision time are
-eligible. Evidence collection records:
+Only bars whose open timestamps are at or after `evaluation_start` are eligible.
+Evidence collection records:
 
 - evaluation-window open and close;
 - highest high and lowest low;
@@ -158,6 +213,13 @@ eligible. Evidence collection records:
 - bid/ask and spread when required by the decision type;
 - bar identifiers, source class, timestamps, manifests, and hashes;
 - missing bars, retrieval gaps, source conflicts, and QC results.
+
+Source-bound consistency requires the same server, account source class,
+symbol, symbol specification, broker timezone, and price-digit/point contract.
+Overlapping bars are fingerprinted so later broker-history revisions are
+visible. Raw manifest hashes bind every collection. Evidence from another
+vendor is admitted only to a separately identified cross-source verification
+cohort and never silently replaces the broker-bound outcome.
 
 Outcome eligibility is derived from four separate statuses:
 
@@ -209,6 +271,23 @@ invalidation precedence, expiry, and event order. Results are `CONFIRMED`,
 `PARTIALLY_CONFIRMED`, `INVALIDATED`, `EXPIRED_UNTRIGGERED`, `UNRESOLVED`, or
 `INVALID_INPUT`. Primary and alternative scenarios are scored separately.
 
+Every scenario freezes a canonical ordered event grammar. Each step declares:
+
+- `step_id` and sequence number;
+- event type, initially `CLOSED_ABOVE`, `CLOSED_BELOW`, `TOUCHED_BAND`,
+  `ENTERED_BAND`, `EXITED_BAND`, or `INVALIDATION_HIT`;
+- timeframe, level or band, and side-aware price field;
+- whether the step is required or optional;
+- activation dependency and `BEFORE`/`AFTER` precedence constraints;
+- step deadline and scenario expiry;
+- same-bar ambiguity rule and evidence requirements.
+
+Required steps must occur in order. Invalidation wins only when its precedence
+is provable; otherwise the scenario remains `UNRESOLVED`. Partial confirmation
+equals completed required steps divided by total required steps, but is reported
+only when at least one required step completed before expiry. Scenario text is
+descriptive and is never parsed by the labeler.
+
 ### 7.3 Setup outcomes
 
 Setup evaluation is closed-bar and bid/ask aware. It measures entry touch,
@@ -246,9 +325,14 @@ existing Phase 1 events. Required event concepts are:
 - evaluation job scheduled;
 - follow-up evidence attached;
 - model outcome resolved or explicitly unresolved;
-- coverage report emitted;
-- performance report emitted;
+- immutable audit report published when explicitly requested;
 - correction or supersession appended.
+
+Routine coverage and performance reports are deterministic rebuildable
+artifacts, not ledger events. An explicit immutable publication appends one
+`REPORT_PUBLISHED` event containing the report hash, cohort ID, policy versions,
+generation time, and evidence references; it does not embed the full report in
+the ledger.
 
 Phase 2 introduces new typed payload schemas without rewriting Phase 1 events.
 The verifier dispatches validation by `(event schema version, event_type,
@@ -299,13 +383,20 @@ Synthetic/replay cohorts remain separate and cannot establish live trading edge.
 
 ## 11. Automatic workflow integration
 
-The normal analysis command performs a bounded catch-up cycle and then records
-the new frozen decisions. Catch-up failure does not fabricate outcomes and does
-not enable trading. A Registry integrity failure blocks Registry mutation but
-does not prevent a separate fresh read-only market analysis. Lease contention,
-history unavailability, or a configured work limit defers remaining catch-up.
-The analysis response reports whether catch-up was complete, partial, deferred,
-or blocked, together with processed and remaining job counts.
+The normal analysis command first captures and analyzes a fresh snapshot, then
+creates a structured prediction envelope and freezes the current decisions
+before running bounded catch-up. This keeps current-market capture independent
+from slow historical work. Chat prose is scorable only when the same response
+path successfully stores that structured envelope; otherwise the response is
+marked `ANALYSIS_NOT_REGISTERED` and cannot be backfilled from prose.
+
+Catch-up failure does not fabricate outcomes and does not enable trading. A
+Registry integrity failure blocks Registry mutation but does not prevent a
+separate fresh read-only market analysis, which must report
+`ANALYSIS_NOT_REGISTERED`. Lease contention, history unavailability, or a
+configured work limit defers remaining catch-up. The analysis response reports
+whether catch-up was complete, partial, deferred, or blocked, together with
+processed and remaining job counts.
 
 Explicit operator commands are also provided for:
 
@@ -318,6 +409,12 @@ Explicit operator commands are also provided for:
 The background worker is read-only with respect to trading. It may append
 Registry and evidence artifacts but must always report zero order actions,
 `trade_write_enabled=false`, and `auto_execution_enabled=false`.
+
+Completion is split into two gates. `PHASE2_CORE_COMPLETE` requires the durable
+catch-up path and all model-outcome/reporting capabilities but does not require a
+resident worker. `PHASE2_WORKER_COMPLETE` additionally requires worker
+start/stop, lease-contention, crash-recovery, and restart tests. Worker delivery
+is an optional milestone and never blocks the Core gate.
 
 ## 12. Historical backfill
 
@@ -350,9 +447,11 @@ modify, cancel, or recommend automatic execution of an order.
 Tests cover:
 
 - schema and frozen-field validation;
+- unconditional and closed-bar-activated conditional decisions;
+- bid/ask/mid reference-price semantics and proxy-cohort separation;
 - stable job identity and duplicate suppression;
 - restart and overdue-job catch-up;
-- strict post-decision closed-bar selection;
+- strict post-evaluation-start closed-bar selection;
 - future-leakage and conflicting-history rejection;
 - directional thresholds and multi-horizon independence;
 - ordered scenario event evaluation;
@@ -361,12 +460,15 @@ Tests cover:
 - invalid-input and insufficient-follow-up exclusion;
 - deterministic SQLite rebuild parity;
 - report numerator/denominator drill-down;
+- structured chat-envelope registration and `ANALYSIS_NOT_REGISTERED` handling;
+- append/fsync failure and partial-tail fail-closed behavior;
 - background-worker restart safety;
 - zero order actions and zero permission leakage.
 
 ## 15. Delivery sequence
 
-1. Frozen decision contracts and Registry event/schema evolution.
+1. Frozen decision contracts, structured chat envelopes, and Registry
+   event/schema evolution.
 2. Durable scheduler, stable job identity, and Registry writer lease.
 3. Follow-up evidence collector and cross-snapshot QC.
 4. Directional outcome labeler.
@@ -396,7 +498,8 @@ Phase 2 is complete when:
 8. Rebuilding SQLite from JSONL produces identical projections and counts.
 9. Re-running catch-up creates no duplicate outcomes.
 10. Normal analysis automatically performs bounded catch-up.
-11. The optional worker can stop and resume without state loss.
+11. `PHASE2_CORE_COMPLETE` does not depend on the optional worker; when the
+    worker milestone is delivered, it must stop and resume without state loss.
 12. All Phase 1 integrity and safety tests continue to pass.
 13. Order actions and permission leakage remain zero.
 14. Duration horizons resolve with the documented terminal-bar policy.
@@ -409,6 +512,14 @@ Phase 2 is complete when:
     visible.
 20. Reports enforce the minimum setup sample and prohibit validated-edge or
     promotion claims during Phase 2.
+21. Conditional decisions start their horizon clock only after closed-bar
+    activation and can expire untriggered.
+22. Directional and setup outcomes enforce the frozen bid/ask/mid semantics.
+23. Scenario outcomes consume only the canonical event grammar and never parse
+    descriptive prose.
+24. JSONL is appended and fsynced under the writer lease and is never rewritten
+    during normal operation.
+25. Unregistered chat prose cannot be reconstructed into a scored prediction.
 
 ## 17. Deferred follow-on
 
