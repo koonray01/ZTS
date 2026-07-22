@@ -139,6 +139,114 @@ class MetaTrader5SnapshotAdapter(SnapshotAdapter):
             raise SnapshotUnavailable(f"MetaTrader5 timeframe is unavailable: {name}")
         return getattr(self.mt5, attr)
 
+    @staticmethod
+    def _row_value(row: Any, name: str, default: Any = None) -> Any:
+        try:
+            return row[name]
+        except (KeyError, IndexError, TypeError, ValueError):
+            return default
+
+    def _history_between(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        start: datetime,
+        end: datetime,
+        include_ticks: bool,
+    ) -> list[dict[str, Any]]:
+        mt5 = self.mt5
+        if start.tzinfo is None or end.tzinfo is None:
+            raise ValueError("historical range must be timezone-aware")
+        if end <= start:
+            raise ValueError("historical range end must be after start")
+        if not mt5.initialize():
+            raise SnapshotUnavailable(f"MetaTrader5 terminal initialization failed: {mt5.last_error()}")
+        try:
+            if not mt5.symbol_select(symbol, True):
+                raise SnapshotUnavailable(f"Symbol is unavailable or cannot be synchronized: {symbol}")
+            tick = mt5.symbol_info_tick(symbol)
+            if tick is None:
+                raise SnapshotUnavailable(f"No tick is available for symbol: {symbol}")
+            capture = utc_now()
+            broker_time = datetime.fromtimestamp(int(tick.time), tz=timezone.utc)
+            broker_offset = _rounded_minute_offset(broker_time, capture)
+            broker_start = start.astimezone(timezone.utc) + broker_offset
+            broker_end = end.astimezone(timezone.utc) + broker_offset
+            if include_ticks:
+                rows = mt5.copy_ticks_range(symbol, broker_start, broker_end, mt5.COPY_TICKS_ALL)
+                if rows is None:
+                    raise SnapshotUnavailable(f"Tick history unavailable for {symbol}: {mt5.last_error()}")
+                result = []
+                for row in rows:
+                    time_msc = self._row_value(row, "time_msc")
+                    raw_time = (
+                        datetime.fromtimestamp(float(time_msc) / 1000.0, tz=timezone.utc)
+                        if time_msc is not None
+                        else datetime.fromtimestamp(int(self._row_value(row, "time")), tz=timezone.utc)
+                    )
+                    result.append(
+                        {
+                            "tick_time": iso_z(raw_time - broker_offset),
+                            "bid": float(self._row_value(row, "bid", 0.0) or 0.0),
+                            "ask": float(self._row_value(row, "ask", 0.0) or 0.0),
+                            "last": float(self._row_value(row, "last", 0.0) or 0.0),
+                            "volume": float(self._row_value(row, "volume", 0.0) or 0.0),
+                            "source": "LIVE_MT5",
+                        }
+                    )
+                return result
+            rows = mt5.copy_rates_range(symbol, self._tf(timeframe), broker_start, broker_end)
+            if rows is None:
+                raise SnapshotUnavailable(f"Bar history unavailable for {symbol} {timeframe}: {mt5.last_error()}")
+            minutes = TIMEFRAME_MINUTES.get(timeframe)
+            if minutes is None:
+                raise SnapshotUnavailable(f"Unsupported historical timeframe: {timeframe}")
+            result = []
+            for row in rows:
+                open_time = datetime.fromtimestamp(int(self._row_value(row, "time")), tz=timezone.utc) - broker_offset
+                close_time = open_time + timedelta(minutes=minutes)
+                result.append(
+                    {
+                        "bar_id": _bar_id(symbol, timeframe, close_time),
+                        "timeframe": timeframe,
+                        "open_time": iso_z(open_time), "close_time": iso_z(close_time),
+                        "open": float(self._row_value(row, "open")),
+                        "high": float(self._row_value(row, "high")),
+                        "low": float(self._row_value(row, "low")),
+                        "close": float(self._row_value(row, "close")),
+                        "tick_volume": int(self._row_value(row, "tick_volume", 0) or 0),
+                        "real_volume": int(self._row_value(row, "real_volume", 0) or 0),
+                        "spread_points": self._row_value(row, "spread"),
+                        "is_closed": True, "source": "LIVE_MT5",
+                        "broker_utc_offset_minutes": int(broker_offset.total_seconds() // 60),
+                    }
+                )
+            return result
+        finally:
+            mt5.shutdown()
+
+    def closed_bars_between(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[dict[str, Any]]:
+        return self._history_between(
+            symbol=symbol, timeframe=timeframe, start=start, end=end, include_ticks=False
+        )
+
+    def ticks_between(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[dict[str, Any]]:
+        return self._history_between(
+            symbol=symbol, timeframe="TICK", start=start, end=end, include_ticks=True
+        )
+
     def capture(self, *, symbol: str, run_id: str, bars: int = 60, include_h4: bool = True) -> dict[str, Any]:
         mt5 = self.mt5
         if not mt5.initialize():
