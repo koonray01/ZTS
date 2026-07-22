@@ -43,7 +43,7 @@ Legacy Registries were not imported, concatenated, rewritten, or deleted.
 
 ## Verification
 
-- Complete repository tests: `218 passed in 14.97s`
+- Complete repository tests: `220 passed`
 - Integrated validation: 9/9 checks passed
 - Contract validation: PASS, 39 schemas
 - Phase 2 operator CLIs bootstrap `src` without `PYTHONPATH`
