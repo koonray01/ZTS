@@ -23,6 +23,11 @@ from ctl_analysis_registry.paths import CONFIG_SCHEMA_VERSION, PRODUCER_VERSION
         "audit_analysis_registry_phase2.py",
         "build_analysis_performance_report.py",
         "run_analysis_outcome_worker.py",
+        "record_analysis_registry.py",
+        "rebuild_analysis_registry.py",
+        "verify_analysis_registry.py",
+        "catch_up_analysis_registry.py",
+        "backfill_analysis_registry_phase2.py",
     ],
 )
 def test_phase2_operator_cli_bootstraps_src_without_pythonpath(tool: str) -> None:
