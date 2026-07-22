@@ -89,3 +89,14 @@ def test_safety_language_is_present_without_claiming_edge() -> None:
     ):
         assert token in text
     assert "validated trading edge" not in text.lower()
+
+
+def test_instruction_ownership_is_compact_and_nonduplicated() -> None:
+    agent = read_text("AGENTS.md")
+    index = read_text("skills.md")
+    orchestration = read_text(ORCHESTRATOR)
+    assert orchestration.count("## Run the foreground workflow") == 1
+    assert "## Run the foreground workflow" not in agent
+    assert "## Run the foreground workflow" not in index
+    assert len(index.splitlines()) <= 80
+    assert len(orchestration.splitlines()) <= 160

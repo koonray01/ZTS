@@ -28,5 +28,37 @@ the proposed design or plan.
 
 ## Post-update validation
 
-Not run yet. The same seven intents will be repeated after the new skill and
-routing contracts are installed.
+Fresh-context agents repeated all seven intents using only the updated
+`AGENTS.md`, `skills.md`, and relevant skills. No agent edited files or read
+the design, plan, or this report.
+
+| Intent | Selected route | Fresh snapshot | Registry / failure behavior | Part 3 | Safety |
+|---|---|---|---|---|---|
+| current XAUUSD analysis | `ctl-market-analysis-registry` | required | automatic canonical recording; `REGISTRY_BLOCKED` remains independent | not automatic | foreground, zero broker writes |
+| Zenith plus external analysis | `ctl-market-analysis-registry` | required | separate attribution; `CHAT_REGISTRATION_BLOCKED` or `EXTERNAL_EVIDENCE_PARTIAL` is visible | not automatic | foreground, zero broker writes |
+| historical performance audit | `ctl-evidence-audit` | not required | read-only canonical audit; capability, coverage, and efficacy are separate | not allowed by audit intent | no broker writes |
+| analysis from another worktree | `ctl-market-analysis-registry` | required | same workspace launcher/root; no local fallback | not automatic | bounded foreground catch-up |
+| unavailable Chat registration | `ctl-market-analysis-registry` | required | Chat prediction is not falsely registered; base statuses remain independent | Chat setup cannot promote eligibility | zero broker writes |
+| Registry write failure | `ctl-market-analysis-registry` | required | analysis may complete but registration reports `REGISTRY_BLOCKED`; no audit-continuity claim | not automatic | no fallback or daemon |
+| explicit Part 3 | `ctl-part3-preexecute` | verify bound freshness | deterministic existing Candidate/evidence review | only when all eligibility gates pass | APPROVED is Manual Review Only |
+
+All expected primary routes matched. Agents consistently required one fresh
+snapshot for new current/live work, automatic canonical registration, bounded
+foreground catch-up, independent status reporting, explicit Part 3 intent and
+eligibility, `order_actions=0`, and `permission_leakage=0`.
+
+### Conservatively unresolved semantics
+
+The instruction layer intentionally does not invent runtime policy for
+concurrent-request deduplication, partial transaction recovery, whether a
+failed Registry write independently blocks a later Part 3 request, Part 3
+result persistence, or deterministic mapping of each failed Part 3 precondition
+to WAIT/REJECTED/INVALIDATED. Agents must expose these as blockers or UNKNOWN
+and defer to implemented deterministic policy rather than infer behavior.
+
+### Verification evidence
+
+- Agent/Skill plus security contracts: 14 passed.
+- Full repository suite: 227 passed.
+- Integrated validation: 9 checks, all passed.
+- Contract validation: PASS, 39 schemas.
