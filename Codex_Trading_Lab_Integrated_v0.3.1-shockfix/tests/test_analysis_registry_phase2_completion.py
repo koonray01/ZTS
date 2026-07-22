@@ -15,6 +15,7 @@ import tools.run_analysis_outcome_worker as worker_cli
 from ctl_analysis_registry.acceptance import worker_milestone_gate
 from ctl_analysis_registry.paths import CONFIG_SCHEMA_VERSION, PRODUCER_VERSION
 from ctl_analysis_registry.index import rebuild_index
+from ctl_analysis_registry.ledger import AppendOnlyLedger
 from ctl_analysis_registry.verify import verify_registry
 
 
@@ -166,6 +167,9 @@ def test_performance_cli_defaults_to_canonical_sqlite(tmp_path: Path, monkeypatc
         def __exit__(self, *args):
             return False
 
+        def close(self):
+            pass
+
     def connect(path):
         observed["sqlite"] = path
         return Connection()
@@ -199,10 +203,13 @@ def test_performance_publication_locks_and_rebuilds_before_reading(tmp_path: Pat
         def __exit__(self, *args):
             return False
 
+        def close(self):
+            pass
+
     monkeypatch.setattr(performance_cli, "acquire_registry_writer", lambda *args, **kwargs: order.append("lease") or Lease())
     monkeypatch.setattr(performance_cli, "rebuild_index", lambda *args: order.append("rebuild"))
     monkeypatch.setattr(performance_cli, "open_readonly_sqlite", lambda path: Connection())
-    monkeypatch.setattr(performance_cli, "build_coverage_report", lambda connection, cohort: {"total_jobs": 0})
+    monkeypatch.setattr(performance_cli, "build_coverage_report", lambda connection, cohort: order.append("read") or {"total_jobs": 0})
     monkeypatch.setattr(performance_cli, "build_performance_report", lambda connection, cohort: {"claims": {"validated_edge": False}})
     monkeypatch.setattr(performance_cli.AppendOnlyLedger, "read_all", lambda self: [])
     monkeypatch.setattr(performance_cli.AppendOnlyLedger, "append_fsynced", lambda self, event: order.append("append"))
@@ -213,3 +220,23 @@ def test_performance_publication_locks_and_rebuilds_before_reading(tmp_path: Pat
     ]) == 0
     capsys.readouterr()
     assert order == ["lease", "rebuild", "read", "append", "rebuild", "release"]
+
+
+def test_performance_publication_is_idempotent_for_unchanged_report(tmp_path: Path, capsys) -> None:
+    config = _config(tmp_path)
+    root = (tmp_path / "canonical").resolve()
+    root.mkdir(parents=True)
+    ledger = root / "events.jsonl"
+    output = tmp_path / "report.json"
+    arguments = [
+        "--registry-config", str(config), "--output", str(output),
+        "--publish-ledger", str(ledger),
+    ]
+
+    assert performance_cli.main(arguments) == 0
+    assert performance_cli.main(arguments) == 0
+    capsys.readouterr()
+
+    events = AppendOnlyLedger(ledger).read_all()
+    assert len(events) == 1
+    assert events[0]["event_type"] == "REPORT_PUBLISHED"

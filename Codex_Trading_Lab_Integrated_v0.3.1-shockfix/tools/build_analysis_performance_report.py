@@ -44,9 +44,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if lease is not None:
             rebuild_index(paths.ledger, paths.sqlite)
-        with open_readonly_sqlite(paths.sqlite) as connection:
+        connection = open_readonly_sqlite(paths.sqlite)
+        try:
             coverage = build_coverage_report(connection, cohort_filter)
             performance = build_performance_report(connection, cohort_filter)
+        finally:
+            connection.close()
         report = {"coverage": coverage, "performance": performance}
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
@@ -55,22 +58,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             event_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             ledger = AppendOnlyLedger(paths.ledger)
             events = ledger.read_all()
-            event = build_v2_event(
-                {
-                    "event_id": stable_id("EVENT", "REPORT_PUBLISHED", report_hash),
-                    "event_type": "REPORT_PUBLISHED", "event_time": event_time,
-                    "decision_time": None, "source_class": "SYNTHETIC", "integrity_tier": "VERIFIED",
-                    "producer": "tools.build_analysis_performance_report",
-                    "payload": {
-                        "report_hash": report_hash, "cohort_filter": cohort_filter,
-                        "policy_versions": ["DIRECTIONAL_TERMINAL_ATR_V1", "SINGLE_TARGET", "ORDERED_SCENARIO_V1"],
-                        "generated_at": event_time, "evidence_refs": [str(args.output)],
-                        "safety": {"trade_write_enabled": False, "auto_execution_enabled": False, "order_actions": 0, "permission_leakage": 0},
+            event_id = stable_id("EVENT", "REPORT_PUBLISHED", report_hash)
+            existing = next((event for event in events if event.get("event_id") == event_id), None)
+            if existing is None:
+                event = build_v2_event(
+                    {
+                        "event_id": event_id,
+                        "event_type": "REPORT_PUBLISHED", "event_time": event_time,
+                        "decision_time": None, "source_class": "SYNTHETIC", "integrity_tier": "VERIFIED",
+                        "producer": "tools.build_analysis_performance_report",
+                        "payload": {
+                            "report_hash": report_hash, "cohort_filter": cohort_filter,
+                            "policy_versions": ["DIRECTIONAL_TERMINAL_ATR_V1", "SINGLE_TARGET", "ORDERED_SCENARIO_V1"],
+                            "generated_at": event_time, "evidence_refs": [str(args.output)],
+                            "safety": {"trade_write_enabled": False, "auto_execution_enabled": False, "order_actions": 0, "permission_leakage": 0},
+                        },
                     },
-                },
-                previous_hash=events[-1]["event_hash"] if events else None,
-            )
-            ledger.append_fsynced(event)
+                    previous_hash=events[-1]["event_hash"] if events else None,
+                )
+                ledger.append_fsynced(event)
             rebuild_index(paths.ledger, paths.sqlite)
     finally:
         if lease is not None:
