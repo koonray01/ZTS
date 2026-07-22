@@ -1,7 +1,7 @@
 # Analysis Performance Registry Phase 2: Model Outcome Evaluation Design
 
 **Date:** 2026-07-22
-**Status:** Approved design pending written-spec review
+**Status:** Revised after technical review; pending final user approval
 **Scope:** Model outcomes for analyses produced in chat and Zenith; manual trade outcomes are deferred
 
 ## 1. Objective
@@ -83,6 +83,11 @@ contract contains:
 - engine and labeling-policy versions;
 - source QC, freshness, integrity tier, and scorable status.
 
+The canonical decision types are `DIRECTIONAL`, `SCENARIO`, `SETUP`, and
+`ABSTENTION`. Phase 1 `ACTION_PLAN` records remain readable but are not promoted
+to a Phase 2 type unless their decision-time payload already satisfies the full
+contract. The labeling policy version is frozen with the decision.
+
 A conclusion missing measurable criteria is `NON_SCORABLE`. Frozen fields are
 never overwritten. A correction or supersession is appended as a new event and
 preserves the original record.
@@ -115,6 +120,32 @@ If it stops or the computer is off, no state is lost. The next analysis command
 or explicit catch-up command processes overdue jobs. Duplicate evaluation is
 prevented by the stable job identity and append-only idempotency checks.
 
+### 5.1 Horizon resolution
+
+Every duration horizon uses one deterministic clock policy:
+
+```text
+evaluation_start = decision_time
+evaluation_deadline = decision_time + horizon
+terminal_bar = first eligible bar whose close_time >= evaluation_deadline
+terminal_price = terminal_bar.close
+excursion_window = eligible closed bars after decision_time through terminal_bar
+```
+
+The bar containing the decision is excluded even if it closes after the
+decision. Horizons expressed as market sessions must declare an explicit
+calendar and timezone; Phase 2 initially supports duration horizons only.
+
+### 5.2 Single-writer safety
+
+Analysis commands, explicit catch-up commands, and the background worker share
+one Registry writer lease. The lease has an owner ID, acquisition time,
+heartbeat, and deterministic expiry/recovery policy. Only the lease holder may
+append events or replace the SQLite projection. Event append and projection
+publication use temporary artifacts plus atomic replacement where the platform
+supports it. A lease conflict defers catch-up; it never creates a second writer
+or blocks collection of a new read-only market snapshot.
+
 ## 6. Follow-up evidence rules
 
 Only bars whose closed timestamps are strictly after the decision time are
@@ -128,10 +159,25 @@ eligible. Evidence collection records:
 - bar identifiers, source class, timestamps, manifests, and hashes;
 - missing bars, retrieval gaps, source conflicts, and QC results.
 
+Outcome eligibility is derived from four separate statuses:
+
+- `decision_input_qc` validates the frozen source snapshot;
+- `followup_evidence_qc` validates future-bar completeness and freshness;
+- `cross_snapshot_consistency_qc` detects conflicting broker histories or
+  identity drift;
+- `outcome_eligibility` records whether the job may enter metrics.
+
 Future leakage causes `UNRESOLVABLE`. A decision-time snapshot marked
 `QUARANTINE` or `BLOCKED` produces `INVALID_INPUT` and is excluded from accuracy
 and edge metrics. Conflicting histories produce `EVIDENCE_CONFLICT`, represented
 as an unresolvable outcome rather than a win or loss.
+
+For setup precedence, the collector may refine an ambiguous source-timeframe
+bar with successively lower closed-bar evidence down to M1, but only from the
+same `LIVE_MT5` symbol/source binding with QC `PASS`. If M1 still touches both
+boundaries in one bar, or lower-timeframe evidence is missing, the result stays
+`AMBIGUOUS_SAME_BAR`. The labeler never assumes optimistic or conservative
+precedence.
 
 ## 7. Outcome policies
 
@@ -141,6 +187,20 @@ Each horizon resolves independently to `CORRECT`, `INCORRECT`, `NEUTRAL`,
 `AMBIGUOUS`, `INSUFFICIENT_FOLLOWUP`, or `INVALID_INPUT`. The labeler uses
 directional return, favorable/adverse excursion, and decision-time
 ATR-normalized thresholds so immaterial movement is not counted as accuracy.
+
+The initial immutable policy is `DIRECTIONAL_TERMINAL_ATR_V1`:
+
+```text
+signed_return_atr = direction_sign * (terminal_price - reference_price) / decision_time_atr
+CORRECT   when signed_return_atr >= 0.25
+INCORRECT when signed_return_atr <= -0.25
+NEUTRAL   when -0.25 < signed_return_atr < 0.25
+```
+
+`AMBIGUOUS` is reserved for evidence conflict or insufficient temporal
+resolution, not small movement. MFE and MAE are reported as diagnostics and do
+not change the V1 terminal label. Missing or non-positive decision-time ATR
+makes the decision `NON_SCORABLE` under this policy.
 
 ### 7.2 Scenario outcomes
 
@@ -165,6 +225,18 @@ defined control. It may produce `PROTECTED_FROM_LOSS`, `MISSED_WINNER`,
 `NOT_SCORABLE`, or `INVALID_INPUT`. The system never synthesizes a retrospective
 candidate from revealed prices.
 
+An abstention is scorable only when the decision-time record contains either a
+fully frozen candidate or a deterministic control with entry, stop, targets,
+and expiry. A general WATCH/HOLD without such geometry is `NOT_SCORABLE`.
+
+### 7.5 Policy-version governance
+
+The policy frozen with a decision produces the `ORIGINAL_POLICY_COHORT` and is
+the only outcome eligible for live headline metrics. Applying a later policy to
+an older decision creates a `RESEARCH_RELABEL_COHORT`; it never overwrites,
+supersedes, or changes the original outcome and cannot enter live headline
+metrics. Policy promotion remains outside Phase 2.
+
 ## 8. Registry events and projections
 
 Phase 2 adds typed payload schemas and final outcome events while retaining
@@ -177,6 +249,12 @@ existing Phase 1 events. Required event concepts are:
 - coverage report emitted;
 - performance report emitted;
 - correction or supersession appended.
+
+Phase 2 introduces new typed payload schemas without rewriting Phase 1 events.
+The verifier dispatches validation by `(event schema version, event_type,
+payload schema version)` and continues to accept valid
+`ANALYSIS_REGISTRY_EVENT_V0_1` records. New event-envelope versions must retain
+hash semantics explicitly; mixed-version ledgers remain one continuous chain.
 
 SQLite adds queryable projections for frozen decision attributes, evaluation
 jobs, evidence status, typed outcomes, and report cohorts. Direction, horizon,
@@ -193,6 +271,14 @@ reason, and audit error. Performance conclusions become
 Every rate shows numerator, denominator, pending count, unresolved count,
 excluded count, cohort identity, and uncertainty appropriate to the sample.
 Only eligible `VERIFIED` model outcomes enter headline metrics.
+
+Descriptive counts are publishable from the first resolved record. Rates must
+always include Wilson 95% confidence intervals when their outcome is binary.
+Directional and scenario rates may be displayed with any non-zero resolved
+sample but remain `INSUFFICIENT_EVIDENCE` for validation claims. Setup
+expectancy and profit factor are not headline-publishable until at least 30
+eligible resolved, triggered setups exist in one declared cohort. No Phase 2
+report may claim validated edge, tune policy, or open a promotion gate.
 
 ## 10. Performance reports
 
@@ -215,8 +301,11 @@ Synthetic/replay cohorts remain separate and cannot establish live trading edge.
 
 The normal analysis command performs a bounded catch-up cycle and then records
 the new frozen decisions. Catch-up failure does not fabricate outcomes and does
-not enable trading. The analysis response reports whether catch-up was complete,
-partial, deferred, or blocked.
+not enable trading. A Registry integrity failure blocks Registry mutation but
+does not prevent a separate fresh read-only market analysis. Lease contention,
+history unavailability, or a configured work limit defers remaining catch-up.
+The analysis response reports whether catch-up was complete, partial, deferred,
+or blocked, together with processed and remaining job counts.
 
 Explicit operator commands are also provided for:
 
@@ -278,13 +367,16 @@ Tests cover:
 ## 15. Delivery sequence
 
 1. Frozen decision contracts and Registry event/schema evolution.
-2. Durable scheduler, catch-up engine, and follow-up evidence bundles.
-3. Directional and scenario labelers.
-4. Setup and WAIT/HOLD/ABSTAIN labelers.
-5. Coverage and model-performance reports.
-6. Normal-analysis integration and operator CLI commands.
-7. Optional read-only background worker.
-8. Conservative historical backfill and end-to-end acceptance audit.
+2. Durable scheduler, stable job identity, and Registry writer lease.
+3. Follow-up evidence collector and cross-snapshot QC.
+4. Directional outcome labeler.
+5. Ordered scenario outcome labeler.
+6. Setup outcome labeler with M1 ambiguity refinement.
+7. WAIT/HOLD/ABSTAIN outcome labeler with frozen controls.
+8. Coverage and model-performance reports.
+9. Normal-analysis integration and operator CLI commands.
+10. Optional read-only background worker.
+11. Conservative historical backfill and end-to-end acceptance audit.
 
 Each delivery must be independently testable and preserve the Phase 1 ledger,
 hash-chain verification, rebuildability, and trading-safety contract.
@@ -307,6 +399,16 @@ Phase 2 is complete when:
 11. The optional worker can stop and resume without state loss.
 12. All Phase 1 integrity and safety tests continue to pass.
 13. Order actions and permission leakage remain zero.
+14. Duration horizons resolve with the documented terminal-bar policy.
+15. Same-bar setup ambiguity is never resolved by assumption.
+16. Concurrent catch-up attempts cannot create duplicate events or break the
+    hash chain.
+17. Original-policy and research-relabel cohorts remain separate.
+18. Phase 1 event envelopes remain verifiable without ledger rewriting.
+19. Decision, follow-up, cross-snapshot, and eligibility QC are independently
+    visible.
+20. Reports enforce the minimum setup sample and prohibit validated-edge or
+    promotion claims during Phase 2.
 
 ## 17. Deferred follow-on
 
