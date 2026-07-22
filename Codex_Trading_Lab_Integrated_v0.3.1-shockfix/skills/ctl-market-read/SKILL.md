@@ -1,24 +1,21 @@
-# ctl-market-read
+---
+name: ctl-market-read
+description: Use when the active workflow needs a deterministic, snapshot-bound Zenith market interpretation without creating scenarios, Candidates, or permission.
+---
 
-        ## Purpose
-        Summarize the compact market state without inventing facts.
+# Market Read
 
-        ## Canonical Registry route
-        For current-market analysis that records results, invoke
-        `D:\MyWork\AlgoTrade\OS\Zenith Trading System\tools\run_zenith_analysis.ps1`.
-        Never derive Registry storage from cwd, checkout, worktree, session ID,
-        or the analysis output directory. Never fall back to a local Registry.
+For current/live user requests, delegate the primary flow to `ctl-market-analysis-registry`. Consume its already-bound fresh snapshot; do not capture another snapshot or write a second Registry record.
 
-        ## Allowed tools
-        - get_current_state
-- inspect_evidence_refs
+## Inputs
 
-        ## Required output
-        Current state, conflicts, unknowns and what changed.
+- Validated snapshot ID, timestamp, source, freshness, and QC
+- Deterministic state and evidence references
 
-        ## Prohibited
-        - Do not modify raw evidence.
-        - Do not change deterministic outputs.
-        - Do not place, modify, cancel or close orders.
-        - Do not grant permission outside `run_part3`.
-        - Do not change policies or skill versions.
+## Output
+
+Report timeframe structure, regime, volatility/shock, zones, liquidity, conflicts, changes, and unknowns. Separate `FACT`, `INTERPRETATION`, and `UNKNOWN`; bind claims to evidence.
+
+## Boundaries
+
+Do not invent market facts, scenarios, Candidates, or permission. Do not alter evidence, deterministic outputs, policy, broker state, or skill versions.
