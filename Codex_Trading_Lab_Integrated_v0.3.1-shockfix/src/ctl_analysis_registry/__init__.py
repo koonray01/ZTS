@@ -15,6 +15,13 @@ from .index import rebuild_index
 from .verify import verify_registry
 from .catchup import registry_status, run_catchup
 from .integration import register_analysis_and_catchup, register_current_analysis
+from .paths import (
+    DEFAULT_WORKSPACE_CONFIG,
+    RegistryPathError,
+    RegistryPaths,
+    load_registry_paths,
+    resolve_registry_paths,
+)
 from .worker import run_worker
 
 __all__ = [
@@ -38,6 +45,11 @@ __all__ = [
     "registry_status",
     "register_current_analysis",
     "register_analysis_and_catchup",
+    "DEFAULT_WORKSPACE_CONFIG",
+    "RegistryPathError",
+    "RegistryPaths",
+    "load_registry_paths",
+    "resolve_registry_paths",
     "run_worker",
     "validate_event_chain",
     "validate_phase2_payload",
