@@ -1,0 +1,4 @@
+interface:
+  display_name: "Market Analysis Registry"
+  short_description: "Run and record auditable market analysis"
+  default_prompt: "Use $ctl-market-analysis-registry to analyze the current market and record an auditable result."

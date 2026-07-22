@@ -1,18 +1,21 @@
-# ctl-entry-evaluator
+---
+name: ctl-entry-evaluator
+description: Use when the primary market-analysis workflow needs deterministic Candidate listing, comparison, or classification without creating a signal or granting trading permission.
+---
 
-        ## Purpose
-        Compare deterministic entry candidates without granting permission.
+# Entry Evaluator
 
-        ## Allowed tools
-        - list_entry_candidates
-- inspect_evidence_refs
+For current/live analysis, operate as a supporting step inside `ctl-market-analysis-registry`. Use its bound snapshot and do not launch another analysis or Registry write.
 
-        ## Required output
-        Entry type, RR, missing conditions, latency and eligibility.
+## Inputs
 
-        ## Prohibited
-        - Do not modify raw evidence.
-        - Do not change deterministic outputs.
-        - Do not place, modify, cancel or close orders.
-        - Do not grant permission outside `run_part3`.
-        - Do not change policies or skill versions.
+- Deterministic Candidate records and evidence bindings
+- Current lifecycle, expiry, invalidation, and blockers
+
+## Output
+
+Return only still-valid Candidates with IDs, scenario, side, entry type/range, stop, targets, RR, missing conditions, latency, lifecycle, expiry, invalidation, and limit eligibility. Distinguish `ZENITH_CANDIDATE`, `CONDITIONAL_WATCH_SETUP`, and `NO_SETUP` exactly.
+
+## Boundaries
+
+Never synthesize a Candidate from narrative, relabel a Chat setup as Zenith, infer UNKNOWN as PASS, override deterministic eligibility, grant Permission, mutate evidence/policy, or write to broker state.
