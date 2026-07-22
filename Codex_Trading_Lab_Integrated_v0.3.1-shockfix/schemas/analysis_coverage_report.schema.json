@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/analysis_coverage_report.schema.json",
+  "type": "object",
+  "required": ["schema_version", "total_jobs", "categories", "cohort_filter", "reconciled", "safety"],
+  "properties": {
+    "schema_version": {"const": "ANALYSIS_COVERAGE_REPORT_V0_1"},
+    "total_jobs": {"type": "integer", "minimum": 0},
+    "categories": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "cohort_filter": {"type": "object"},
+    "reconciled": {"const": true},
+    "qc_reason_counts": {"type": "object"},
+    "safety": {"type": "object"}
+  },
+  "additionalProperties": false
+}

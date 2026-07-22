@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/analysis_performance_report.schema.json",
+  "type": "object",
+  "required": ["schema_version", "cohort_filter", "directional", "scenario", "setup", "abstention", "claims", "safety"],
+  "properties": {
+    "schema_version": {"const": "ANALYSIS_PERFORMANCE_REPORT_V0_1"},
+    "cohort_filter": {"type": "object"},
+    "directional": {"type": "object"},
+    "scenario": {"type": "object"},
+    "setup": {"type": "object"},
+    "abstention": {"type": "object"},
+    "claims": {
+      "type": "object",
+      "properties": {"validated_edge": {"const": false}, "promotion_gate_open": {"const": false}, "policy_tuned": {"const": false}},
+      "required": ["validated_edge", "promotion_gate_open", "policy_tuned"],
+      "additionalProperties": false
+    },
+    "safety": {"type": "object"}
+  },
+  "additionalProperties": false
+}
