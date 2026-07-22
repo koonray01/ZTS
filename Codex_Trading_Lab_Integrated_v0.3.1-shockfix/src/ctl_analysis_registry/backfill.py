@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from .ledger import AppendOnlyLedger
 from .coordination import acquire_registry_writer
-from .paths import RegistryPaths, resolve_registry_paths
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .recorder import record_frozen_decisions
 
 
@@ -87,6 +87,7 @@ def backfill_eligible(
         return result
 
     paths = paths or resolve_registry_paths(Path(ledger_path).parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path)
     lease = acquire_registry_writer(paths, f"backfill-{uuid4().hex}", datetime.now(timezone.utc))
     try:
         event_ids = record_frozen_decisions(ledger, [frozen])

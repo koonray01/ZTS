@@ -97,3 +97,20 @@ def load_registry_paths(
     _absolute(payload["implementation_root"], "implementation_root")
     paths = resolve_registry_paths(payload["canonical_root"], registry_root=registry_root)
     return replace(paths, config=config)
+
+
+def validate_mutation_paths(
+    paths: RegistryPaths,
+    *,
+    ledger_path: str | Path,
+    sqlite_path: str | Path | None = None,
+    evidence_root: str | Path | None = None,
+) -> None:
+    comparisons = {"ledger": (_absolute(ledger_path, "ledger_path"), paths.ledger)}
+    if sqlite_path is not None:
+        comparisons["sqlite"] = (_absolute(sqlite_path, "sqlite_path"), paths.sqlite)
+    if evidence_root is not None:
+        comparisons["evidence"] = (_absolute(evidence_root, "evidence_root"), paths.evidence)
+    mismatches = [name for name, (actual, expected) in comparisons.items() if actual != expected]
+    if mismatches:
+        raise RegistryPathError(f"mutation target does not match RegistryPaths: {', '.join(mismatches)}")

@@ -9,6 +9,8 @@ import tools.update_market_analysis as update_market_analysis
 import tools.record_analysis_registry as record_cli
 import tools.rebuild_analysis_registry as rebuild_cli
 import tools.verify_analysis_registry as verify_cli
+import tools.catch_up_analysis_registry as catchup_cli
+import tools.backfill_analysis_registry_phase2 as backfill_cli
 from ctl_analysis_registry.paths import CONFIG_SCHEMA_VERSION, PRODUCER_VERSION
 
 
@@ -134,3 +136,56 @@ def test_rebuild_and_verify_use_canonical_paths(
     expected = (tmp_path / "canonical").resolve()
     assert observed["rebuild"] == (expected / "events.jsonl", expected / "index.sqlite")
     assert observed["verify"] == (expected / "events.jsonl", expected / "index.sqlite")
+
+
+def test_catchup_and_backfill_clis_use_canonical_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _config(tmp_path)
+    event = tmp_path / "event.json"
+    bundle = tmp_path / "bundle.json"
+    event.write_text("{}", encoding="utf-8")
+    bundle.write_text("{}", encoding="utf-8")
+    observed = {}
+
+    monkeypatch.setattr(catchup_cli, "MetaTrader5SnapshotAdapter", object)
+    def catchup(**kwargs):
+        observed["catchup"] = kwargs
+        return {"status": "COMPLETE"}
+
+    def backfill(*args, **kwargs):
+        observed["backfill"] = (args, kwargs)
+        return {"classification": "INVALID_INPUT"}
+
+    monkeypatch.setattr(catchup_cli, "run_catchup", catchup)
+    monkeypatch.setattr(backfill_cli, "backfill_eligible", backfill)
+
+    assert catchup_cli.main(["--registry-config", str(config)]) == 0
+    capsys.readouterr()
+    assert backfill_cli.main(["--event", str(event), "--source-bundle", str(bundle), "--registry-config", str(config)]) == 0
+    capsys.readouterr()
+    paths = observed["catchup"]["paths"]
+    assert paths.root == (tmp_path / "canonical").resolve()
+    assert observed["backfill"][1]["paths"] == paths
+
+
+def test_verify_retains_explicit_read_only_inspection_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _config(tmp_path)
+    external = tmp_path / "external"
+    observed = {}
+
+    def verify(ledger, sqlite):
+        observed["paths"] = (ledger, sqlite)
+        return {"status": "PASS"}
+
+    monkeypatch.setattr(verify_cli, "verify_registry", verify)
+    assert verify_cli.main([
+        "--registry-config", str(config),
+        "--ledger", str(external / "events.jsonl"),
+        "--sqlite", str(external / "index.sqlite"),
+    ]) == 0
+    response = json.loads(capsys.readouterr().out)
+    assert response["registry_mode"] == "NON_CANONICAL"
+    assert observed["paths"] == (external / "events.jsonl", external / "index.sqlite")

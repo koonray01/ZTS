@@ -18,7 +18,7 @@ from .index import rebuild_index
 from .coordination import acquire_registry_writer
 from .lease import LeaseBusyError
 from .ledger import AppendOnlyLedger
-from .paths import RegistryPaths, resolve_registry_paths
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .scenario import label_scenario
 from .scheduler import due_jobs
 from .setup import label_setup
@@ -133,6 +133,7 @@ def run_catchup(
     if max_jobs < 0:
         raise ValueError("max_jobs cannot be negative")
     paths = paths or resolve_registry_paths(ledger_path.parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path, evidence_root=evidence_root)
     try:
         lease = acquire_registry_writer(paths, stable_id("CATCHUP_OWNER", _iso(now)), now)
     except LeaseBusyError:

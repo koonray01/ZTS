@@ -4,10 +4,42 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+
+def _acquire_os_guard(path: Path):
+    guard_path = path.with_name(path.name + ".guard")
+    guard_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = guard_path.open("a+b")
+    if handle.tell() == 0:
+        handle.write(b"0")
+        handle.flush()
+    handle.seek(0)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        handle.close()
+        raise LeaseBusyError("registry writer OS lock is held") from exc
+    return handle
+
+
+def _release_os_guard(handle) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    handle.close()
 
 
 class LeaseError(RuntimeError):
@@ -53,6 +85,7 @@ class RegistryWriterLease:
     owner_id: str
     acquired_at: datetime
     ttl_seconds: int
+    _guard: Any = field(repr=False)
 
     @classmethod
     def acquire(
@@ -70,6 +103,7 @@ class RegistryWriterLease:
             raise ValueError("ttl_seconds must be positive")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        guard = _acquire_os_guard(path)
         acquired_at = now or _utc_now()
         payload = {
             "owner_id": owner_id,
@@ -78,34 +112,35 @@ class RegistryWriterLease:
             "ttl_seconds": ttl_seconds,
         }
         try:
-            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
             try:
-                current = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise LeaseBusyError("registry lease exists but cannot be verified") from exc
-            heartbeat = _parse_time(current.get("heartbeat_at"))
-            current_ttl = int(current.get("ttl_seconds", 0) or 0)
-            if acquired_at <= heartbeat + timedelta(seconds=current_ttl):
-                raise LeaseBusyError(f"registry lease held by {current.get('owner_id', 'UNKNOWN')}")
-            if operation_log is not None:
-                _append_operation(
-                    Path(operation_log),
-                    {
-                        "event": "STALE_REGISTRY_LEASE_RECOVERED",
-                        "event_time": acquired_at.isoformat(),
-                        "previous_owner_id": current.get("owner_id"),
-                        "new_owner_id": owner_id,
-                        "previous_heartbeat_at": current.get("heartbeat_at"),
-                    },
-                )
-            try:
+                descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                try:
+                    current = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise LeaseBusyError("registry lease exists but cannot be verified") from exc
+                heartbeat = _parse_time(current.get("heartbeat_at"))
+                current_ttl = int(current.get("ttl_seconds", 0) or 0)
+                if acquired_at <= heartbeat + timedelta(seconds=current_ttl):
+                    raise LeaseBusyError(f"registry lease held by {current.get('owner_id', 'UNKNOWN')}")
+                if operation_log is not None:
+                    _append_operation(
+                        Path(operation_log),
+                        {
+                            "event": "STALE_REGISTRY_LEASE_RECOVERED",
+                            "event_time": acquired_at.isoformat(),
+                            "previous_owner_id": current.get("owner_id"),
+                            "new_owner_id": owner_id,
+                            "previous_heartbeat_at": current.get("heartbeat_at"),
+                        },
+                    )
                 path.unlink()
                 descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            except (FileNotFoundError, FileExistsError) as exc:
-                raise LeaseBusyError("registry lease changed during stale recovery") from exc
-        _write_descriptor(descriptor, payload)
-        return cls(path=path, owner_id=owner_id, acquired_at=acquired_at, ttl_seconds=ttl_seconds)
+            _write_descriptor(descriptor, payload)
+            return cls(path=path, owner_id=owner_id, acquired_at=acquired_at, ttl_seconds=ttl_seconds, _guard=guard)
+        except Exception:
+            _release_os_guard(guard)
+            raise
 
     def _read_owned(self) -> dict[str, Any]:
         try:
@@ -128,5 +163,8 @@ class RegistryWriterLease:
             temporary.unlink(missing_ok=True)
 
     def release(self) -> None:
-        self._read_owned()
-        self.path.unlink()
+        try:
+            self._read_owned()
+            self.path.unlink()
+        finally:
+            _release_os_guard(self._guard)

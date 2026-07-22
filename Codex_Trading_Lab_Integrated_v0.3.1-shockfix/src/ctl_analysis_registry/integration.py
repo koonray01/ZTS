@@ -14,7 +14,7 @@ from .identity import stable_id
 from .index import rebuild_index
 from .coordination import acquire_registry_writer
 from .ledger import AppendOnlyLedger
-from .paths import RegistryPaths, resolve_registry_paths
+from .paths import RegistryPaths, resolve_registry_paths, validate_mutation_paths
 from .recorder import freeze_zenith_decisions, record_frozen_decisions
 from .scheduler import schedule_jobs
 
@@ -32,6 +32,7 @@ def register_current_analysis(
 ) -> dict[str, Any]:
     ledger_path, sqlite_path = Path(ledger_path), Path(sqlite_path)
     paths = paths or resolve_registry_paths(ledger_path.parent)
+    validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path)
     lease = acquire_registry_writer(
         paths, stable_id("ANALYSIS_REGISTRY_WRITER", analysis_id, now.isoformat()), now,
     )
@@ -99,6 +100,8 @@ def register_analysis_and_catchup(
     chat_envelope: dict[str, Any] | None = None,
     paths: RegistryPaths | None = None,
 ) -> dict[str, Any]:
+    if paths is not None:
+        validate_mutation_paths(paths, ledger_path=ledger_path, sqlite_path=sqlite_path, evidence_root=evidence_root)
     try:
         recording = register_current_analysis(
             decision_state=decision_state, snapshot=snapshot, analysis_id=analysis_id,
