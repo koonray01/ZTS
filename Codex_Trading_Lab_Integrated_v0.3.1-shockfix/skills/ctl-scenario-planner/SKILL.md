@@ -1,6 +1,6 @@
 ---
 name: ctl-scenario-planner
-description: Use when validated market evidence must be converted into measurable primary and alternative scenarios or a conditional watch setup.
+description: Use when the primary market-analysis workflow needs measurable primary and alternative scenarios or a conditional watch setup from validated evidence.
 ---
 
 # Scenario Planner

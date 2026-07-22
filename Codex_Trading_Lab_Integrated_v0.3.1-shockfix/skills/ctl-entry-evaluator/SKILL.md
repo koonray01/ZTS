@@ -1,6 +1,6 @@
 ---
 name: ctl-entry-evaluator
-description: Use when deterministic entry Candidates must be listed, compared, or classified without creating a signal or granting trading permission.
+description: Use when the primary market-analysis workflow needs deterministic Candidate listing, comparison, or classification without creating a signal or granting trading permission.
 ---
 
 # Entry Evaluator

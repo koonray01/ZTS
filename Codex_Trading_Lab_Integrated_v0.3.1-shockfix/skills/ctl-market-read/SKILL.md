@@ -1,6 +1,6 @@
 ---
 name: ctl-market-read
-description: Use when the active workflow needs a deterministic, snapshot-bound Zenith market interpretation without creating scenarios, Candidates, or permission.
+description: Use when the primary market-analysis workflow needs a deterministic, snapshot-bound Zenith market interpretation without creating scenarios, Candidates, or permission.
 ---
 
 # Market Read

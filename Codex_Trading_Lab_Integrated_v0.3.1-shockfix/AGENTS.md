@@ -24,7 +24,7 @@ Domain skills may be consulted but must not restart orchestration, capture anoth
 
 - Invoke `D:\MyWork\AlgoTrade\OS\Zenith Trading System\tools\run_zenith_analysis.ps1` for Registry-producing live analysis.
 - The sole live root is `D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry`; never derive it from a checkout, worktree, output directory, or chat session.
-- Invalid or ambiguous configuration blocks registration. Never create a local fallback or claim audit continuity after failure.
+- Resolve the implementation checkout from `runtime/analysis_registry/registry.json`. Invalid configuration is `REGISTRY_CONFIG_INVALID`; competing roots are `REGISTRY_PATH_AMBIGUOUS`. Never create a local fallback or claim audit continuity after failure.
 - Catch-up is bounded foreground work during a request, not a daemon.
 
 ## Evidence precedence

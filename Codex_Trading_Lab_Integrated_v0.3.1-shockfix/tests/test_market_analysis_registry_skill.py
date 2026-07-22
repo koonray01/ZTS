@@ -38,6 +38,7 @@ def test_orchestrator_declares_current_market_triggers_and_canonical_route() -> 
         assert token in metadata["description"] or token in text
     assert r"D:\MyWork\AlgoTrade\OS\Zenith Trading System\tools\run_zenith_analysis.ps1" in text
     assert r"D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry" in text
+    assert "registry.json" in text
 
 
 def test_orchestrator_is_capability_aware_and_foreground_only() -> None:
@@ -47,6 +48,9 @@ def test_orchestrator_is_capability_aware_and_foreground_only() -> None:
         "EXTERNAL_EVIDENCE_PARTIAL",
         "PHASE2_ENABLED_NO_EVENTS",
         "INSUFFICIENT_EVIDENCE",
+        "REGISTRY_CONFIG_INVALID",
+        "REGISTRY_PATH_AMBIGUOUS",
+        "CATCHUP_BLOCKED",
         "bounded foreground catch-up",
         "not a background",
     ):
@@ -76,6 +80,16 @@ def test_domain_skills_have_valid_frontmatter_and_delegate_without_copying_flow(
         assert "ctl-market-analysis-registry" in text
         assert text.count("run_zenith_analysis.ps1") <= 1
         assert len(text.splitlines()) <= 80
+
+    for name in ("ctl-market-read", "ctl-scenario-planner", "ctl-entry-evaluator"):
+        metadata = frontmatter(ROOT / "skills" / name / "SKILL.md")
+        assert "primary market-analysis workflow" in metadata["description"]
+
+
+def test_chat_registration_contract_is_structured_and_transparent() -> None:
+    text = read_text(ORCHESTRATOR)
+    assert "CHAT_MODEL" in text
+    assert "registration path" in text
 
 
 def test_safety_language_is_present_without_claiming_edge() -> None:
