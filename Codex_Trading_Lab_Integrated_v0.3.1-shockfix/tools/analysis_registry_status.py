@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
 from ctl_analysis_registry.catchup import registry_status
 from ctl_analysis_registry.paths import DEFAULT_WORKSPACE_CONFIG, load_registry_paths

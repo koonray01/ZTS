@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +14,27 @@ import tools.build_analysis_performance_report as performance_cli
 import tools.run_analysis_outcome_worker as worker_cli
 from ctl_analysis_registry.acceptance import worker_milestone_gate
 from ctl_analysis_registry.paths import CONFIG_SCHEMA_VERSION, PRODUCER_VERSION
+
+
+@pytest.mark.parametrize(
+    "tool",
+    [
+        "analysis_registry_status.py",
+        "audit_analysis_registry_phase2.py",
+        "build_analysis_performance_report.py",
+        "run_analysis_outcome_worker.py",
+    ],
+)
+def test_phase2_operator_cli_bootstraps_src_without_pythonpath(tool: str) -> None:
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [sys.executable, str(Path("tools") / tool), "--help"],
+        text=True,
+        capture_output=True,
+        env=environment,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _config(tmp_path: Path) -> Path:
