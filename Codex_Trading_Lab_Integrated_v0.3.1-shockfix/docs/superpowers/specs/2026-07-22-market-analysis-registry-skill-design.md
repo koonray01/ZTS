@@ -21,6 +21,10 @@ Responsibilities:
 - `ctl-scenario-planner`: scenario construction and measurable prediction fields.
 - `ctl-entry-evaluator`: Candidate truth and setup classification.
 - `ctl-evidence-audit`: evidence, Registry, and audit verification.
+- `ctl-live-event-review`: read-only position and live-event review; invoked
+  only for explicit monitoring or event-review intent.
+- `ctl-part3-preexecute`: deterministic Part 3 preparation; invoked only for
+  explicit Part 3 intent and an eligible Candidate.
 - workspace launcher: canonical foreground Zenith execution path, automatic
   Registry recording, and bounded catch-up;
 - `ctl_analysis_registry.chat_model`: validation and freezing of Chat Model
@@ -41,6 +45,20 @@ The orchestration skill applies to Thai or English requests for:
 
 Historical audit-only, replay, position-management, and explicit Part 3 requests keep their existing routes.
 
+### Routing Precedence
+
+Use one primary route per request:
+
+1. current/live market, market update, both-system comparison, Scalping, or
+   Daytrade setup -> `ctl-market-analysis-registry`;
+2. historical performance or evidence audit -> `ctl-evidence-audit`;
+3. position monitoring or live-event review -> `ctl-live-event-review`;
+4. explicit Part 3 request -> `ctl-part3-preexecute` after deterministic
+   eligibility checks.
+
+The orchestration skill may consult domain skills, but domain skills do not
+restart the canonical flow or create additional snapshots and Registry writes.
+
 ## Canonical Flow
 
 1. Capture a new read-only MT5 snapshot for any current/live request.
@@ -60,6 +78,12 @@ Historical audit-only, replay, position-management, and explicit Part 3 requests
 8. Freeze and record Zenith and Chat views automatically. Only a contract with measurable machine-readable fields becomes scorable and receives evaluation jobs.
 9. Run bounded catch-up automatically in the same foreground request. This is not a persistent background process.
 10. Report market evidence, both analyses when applicable, comparison, setup class, Registry result, catch-up result, and safety counters.
+
+Step 8 is capability-aware. Zenith registration uses the workspace launcher.
+Chat registration uses only an available supported structured integration
+boundary. If that boundary cannot be called in the active environment, return
+`CHAT_REGISTRATION_BLOCKED`; never reconstruct a successful registration from
+conversation text or imply that the launcher accepted the envelope.
 
 ## Canonical Runtime Storage
 
@@ -89,6 +113,12 @@ Automatic recording is the default and does not require the user to say “recor
 - why a decision was non-scorable when no job was created.
 
 The workflow must never manufacture horizons, price geometry, or evaluation criteria from prose after the outcome is known. Registry failure is visible and does not silently downgrade to an unrecorded “successful” analysis.
+
+External evidence binding is complete only when the Registry decision retains
+the source URL, retrieval time, immutable content hash, and evidence reference.
+If those fields cannot be persisted by the available integration boundary,
+report `EXTERNAL_EVIDENCE_PARTIAL`. The external narrative may still be shown,
+but the response must not claim complete evidence provenance.
 
 ### Scorable Conditional Setup
 
@@ -154,6 +184,21 @@ For performance review, capability and evidence coverage remain separate.
 `PHASE2_ENABLED_NO_EVENTS` or `INSUFFICIENT_EVIDENCE` is not a failure and is
 never translated into a positive or negative edge claim.
 
+## Context and Token Budget
+
+- `AGENTS.md` contains only repository-wide routing, safety invariants,
+  canonical path rules, and failure precedence.
+- `ctl-market-analysis-registry` owns the ordered end-to-end workflow and
+  response contract.
+- Domain skills contain only their local responsibility, required inputs,
+  outputs, and prohibitions; they link to the orchestration skill instead of
+  repeating its steps.
+- `skills.md` is an intent index, not a second operating manual.
+- Detailed schemas, CLI inventories, and Phase 2 explanations remain in
+  existing docs and are loaded only when the active task needs them.
+- Validation rejects duplicated canonical-flow sections across Agent, index,
+  and domain-skill files.
+
 ## Verification Strategy
 
 Skill pressure scenarios verify that an agent:
@@ -167,6 +212,13 @@ Skill pressure scenarios verify that an agent:
 - resolves the same canonical Registry from another session or worktree;
 - distinguishes Phase 2 capability from outcome coverage and performance;
 - preserves zero broker writes and Permission separation.
+
+Before editing the skill, capture baseline behavior without the new
+orchestration skill for these prompts: current analysis, both-system analysis,
+historical performance review, another-session invocation, unavailable Chat
+registration, Registry failure, and explicit Part 3. After editing, repeat the
+same prompts with the skill enabled and verify the primary route, status fields,
+canonical path, foreground-only behavior, and safety response.
 
 Repository validation checks frontmatter, required sections, cross-references, command routing, and prohibited claims. Existing full tests and contract validation must remain green.
 
