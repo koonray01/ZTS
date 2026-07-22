@@ -10,7 +10,7 @@ deleted.
 ## Canonical Runtime
 
 - Registry root: `D:\MyWork\AlgoTrade\OS\Zenith Trading System\runtime\analysis_registry`
-- Implementation root: `D:\MyWork\AlgoTrade\OS\Zenith Trading System\.worktrees\live-analysis-main\Codex_Trading_Lab_Integrated_v0.3.1-shockfix`
+- Implementation root: `D:\MyWork\AlgoTrade\OS\Zenith Trading System\.worktrees\canonical-main\Codex_Trading_Lab_Integrated_v0.3.1-shockfix`
 - Mode: `CANONICAL`
 - Configuration schema: `ANALYSIS_REGISTRY_CONFIG_V0_1`
 - Producer: `CTL_ANALYSIS_REGISTRY_V0_2`
@@ -20,7 +20,7 @@ deleted.
 
 ## Verification
 
-The final complete repository suite passed: `203 passed in 7.94s`. Integrated
+The post-merge complete repository suite passed: `203 passed in 15.52s`. Integrated
 validation passed all 9 checks, and contract validation passed with 39 schemas.
 Launcher `-ResolveOnly` returned the
 same canonical Registry and implementation roots when invoked from the primary
@@ -29,7 +29,7 @@ checkout and the linked worktree. The resolve-only path did not call MT5.
 Workspace artifact SHA-256:
 
 - `run_zenith_analysis.ps1`: `AFF8B675F4B54FF00AFA90CA859833ABD6ABBA41E6BC48B079D1B0D7156B430E`
-- `registry.json`: `864A8CF6936ED079C193FCCE12552B7D6A4E1C109F2E88ACE47997346C236001`
+- `registry.json`: `1D790F5644C88A0F28ECECFC139B50B8D19BED63F585CBCC39F176FC36C2B983`
 
 ## Legacy Inventory
 
