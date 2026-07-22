@@ -15,7 +15,8 @@ LAUNCHER = WORKSPACE / "tools" / "run_zenith_analysis.ps1"
 @pytest.mark.skipif(shutil.which("powershell") is None, reason="PowerShell unavailable")
 def test_launcher_resolves_same_root_from_checkout_and_worktree() -> None:
     project = WORKSPACE / "Codex_Trading_Lab_Integrated_v0.3.1-shockfix"
-    worktree = WORKSPACE / ".worktrees" / "live-analysis-main" / "Codex_Trading_Lab_Integrated_v0.3.1-shockfix"
+    config = json.loads((WORKSPACE / "runtime" / "analysis_registry" / "registry.json").read_text(encoding="utf-8"))
+    worktree = Path(config["implementation_root"])
     outputs = []
     for cwd in (project, worktree):
         run = subprocess.run(
