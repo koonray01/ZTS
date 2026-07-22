@@ -106,6 +106,22 @@ def test_worker_milestone_requires_cycle_and_zero_trade_safety() -> None:
     assert worker_milestone_gate(complete) == "PHASE2_WORKER_COMPLETE"
     assert worker_milestone_gate({**complete, "cycles": 0}) == "PHASE2_WORKER_BLOCKED"
     assert worker_milestone_gate({**complete, "safety": {**complete["safety"], "order_actions": 1}}) == "PHASE2_WORKER_BLOCKED"
+    assert worker_milestone_gate({**complete, "status": "PARTIAL"}) == "PHASE2_WORKER_BLOCKED"
+    assert worker_milestone_gate({**complete, "status": "DEFERRED"}) == "PHASE2_WORKER_BLOCKED"
+    assert worker_milestone_gate({**complete, "status": "STOPPED"}) == "PHASE2_WORKER_BLOCKED"
+
+
+def test_status_and_verify_do_not_create_missing_sqlite(tmp_path: Path) -> None:
+    sqlite = tmp_path / "missing.sqlite"
+
+    with pytest.raises(FileNotFoundError):
+        status_cli.registry_status(sqlite, __import__("datetime").datetime.now(__import__("datetime").timezone.utc))
+    assert not sqlite.exists()
+
+    report = verify_registry(tmp_path / "events.jsonl", sqlite)
+    assert report["status"] == "BLOCKED"
+    assert any("index does not exist" in error for error in report["errors"])
+    assert not sqlite.exists()
 
 
 def test_empty_phase2_projection_is_enabled_but_has_no_events(tmp_path: Path) -> None:
@@ -154,7 +170,7 @@ def test_performance_cli_defaults_to_canonical_sqlite(tmp_path: Path, monkeypatc
         observed["sqlite"] = path
         return Connection()
 
-    monkeypatch.setattr(performance_cli.sqlite3, "connect", connect)
+    monkeypatch.setattr(performance_cli, "open_readonly_sqlite", connect)
     monkeypatch.setattr(performance_cli, "build_coverage_report", lambda connection, cohort: {"total_jobs": 0})
     monkeypatch.setattr(performance_cli, "build_performance_report", lambda connection, cohort: {"claims": {"validated_edge": False}})
     assert performance_cli.main(["--registry-config", str(config), "--output", str(tmp_path / "report.json")]) == 0
@@ -162,3 +178,38 @@ def test_performance_cli_defaults_to_canonical_sqlite(tmp_path: Path, monkeypatc
     assert observed["sqlite"] == (tmp_path / "canonical" / "index.sqlite").resolve()
     assert response["registry_mode"] == "CANONICAL"
     assert response["performance"]["claims"]["validated_edge"] is False
+
+
+def test_performance_publication_locks_and_rebuilds_before_reading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    config = _config(tmp_path)
+    root = (tmp_path / "canonical").resolve()
+    root.mkdir(parents=True)
+    (root / "events.jsonl").touch()
+    order = []
+
+    class Lease:
+        def release(self):
+            order.append("release")
+
+    class Connection:
+        def __enter__(self):
+            order.append("read")
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(performance_cli, "acquire_registry_writer", lambda *args, **kwargs: order.append("lease") or Lease())
+    monkeypatch.setattr(performance_cli, "rebuild_index", lambda *args: order.append("rebuild"))
+    monkeypatch.setattr(performance_cli, "open_readonly_sqlite", lambda path: Connection())
+    monkeypatch.setattr(performance_cli, "build_coverage_report", lambda connection, cohort: {"total_jobs": 0})
+    monkeypatch.setattr(performance_cli, "build_performance_report", lambda connection, cohort: {"claims": {"validated_edge": False}})
+    monkeypatch.setattr(performance_cli.AppendOnlyLedger, "read_all", lambda self: [])
+    monkeypatch.setattr(performance_cli.AppendOnlyLedger, "append_fsynced", lambda self, event: order.append("append"))
+
+    assert performance_cli.main([
+        "--registry-config", str(config), "--output", str(tmp_path / "report.json"),
+        "--publish-ledger", str(root / "events.jsonl"),
+    ]) == 0
+    capsys.readouterr()
+    assert order == ["lease", "rebuild", "read", "append", "rebuild", "release"]

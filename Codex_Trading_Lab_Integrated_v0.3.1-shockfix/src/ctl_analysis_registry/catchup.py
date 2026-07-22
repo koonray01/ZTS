@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .abstention import label_abstention
+from .database import open_readonly_sqlite
 from .directional import label_directional
 from .events import build_v2_event
 from .followup import collect_followup
@@ -190,7 +191,7 @@ def run_catchup(
 
 
 def registry_status(sqlite_path: str | Path, now: datetime) -> dict[str, Any]:
-    connection = sqlite3.connect(sqlite_path)
+    connection = open_readonly_sqlite(sqlite_path)
     try:
         states = dict(connection.execute("SELECT state, COUNT(*) FROM evaluation_jobs GROUP BY state").fetchall())
         due = int(connection.execute(

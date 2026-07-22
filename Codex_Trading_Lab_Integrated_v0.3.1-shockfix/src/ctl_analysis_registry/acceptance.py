@@ -41,7 +41,7 @@ def worker_milestone_gate(worker_control: dict[str, Any] | None) -> str:
         and safety.get("order_actions") == 0
         and safety.get("permission_leakage") == 0
     )
-    status_ok = worker_control.get("status") in {"COMPLETE", "PARTIAL", "DEFERRED", "STOPPED"}
+    status_ok = worker_control.get("status") == "COMPLETE"
     cycles_ok = isinstance(worker_control.get("cycles"), int) and worker_control["cycles"] >= 1
     return "PHASE2_WORKER_COMPLETE" if safety_ok and status_ok and cycles_ok else "PHASE2_WORKER_BLOCKED"
 

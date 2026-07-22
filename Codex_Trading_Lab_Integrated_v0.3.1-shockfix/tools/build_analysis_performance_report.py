@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ctl_analysis_registry.coordination import acquire_registry_writer
+from ctl_analysis_registry.database import open_readonly_sqlite
 from ctl_analysis_registry.events import build_v2_event
 from ctl_analysis_registry.identity import canonical_json, sha256_hex, stable_id
 from ctl_analysis_registry.index import rebuild_index
@@ -35,19 +35,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     paths = load_registry_paths(args.registry_config, registry_root=args.registry_root)
     cohort_filter = {key: value for key, value in {"system": args.system, "horizon": args.horizon}.items() if value}
-    with sqlite3.connect(paths.sqlite) as connection:
-        coverage = build_coverage_report(connection, cohort_filter)
-        performance = build_performance_report(connection, cohort_filter)
-    report = {"coverage": coverage, "performance": performance}
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    if args.publish_ledger and args.publish_ledger.resolve() != paths.ledger:
+        raise RegistryPathError("published report ledger must equal the resolved canonical ledger")
+    lease = None
     if args.publish_ledger:
-        if args.publish_ledger.resolve() != paths.ledger:
-            raise RegistryPathError("published report ledger must equal the resolved canonical ledger")
-        report_hash = sha256_hex(canonical_json(report))
-        event_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        lease = acquire_registry_writer(paths, stable_id("REPORT_PUBLISHER", report_hash), datetime.now(timezone.utc))
-        try:
+        now = datetime.now(timezone.utc)
+        lease = acquire_registry_writer(paths, stable_id("REPORT_PUBLISHER", args.output.resolve()), now)
+    try:
+        if lease is not None:
+            rebuild_index(paths.ledger, paths.sqlite)
+        with open_readonly_sqlite(paths.sqlite) as connection:
+            coverage = build_coverage_report(connection, cohort_filter)
+            performance = build_performance_report(connection, cohort_filter)
+        report = {"coverage": coverage, "performance": performance}
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+        if args.publish_ledger:
+            report_hash = sha256_hex(canonical_json(report))
+            event_time = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             ledger = AppendOnlyLedger(paths.ledger)
             events = ledger.read_all()
             event = build_v2_event(
@@ -67,7 +72,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             ledger.append_fsynced(event)
             rebuild_index(paths.ledger, paths.sqlite)
-        finally:
+    finally:
+        if lease is not None:
             lease.release()
     print(json.dumps({**paths.metadata(), **report}, ensure_ascii=False, sort_keys=True))
     return 0

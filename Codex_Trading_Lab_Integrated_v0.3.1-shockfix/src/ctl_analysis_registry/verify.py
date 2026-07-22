@@ -11,6 +11,7 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 from .events import validate_event_chain
+from .database import open_readonly_sqlite
 from .contracts import V2_SCHEMA_VERSION, validate_phase2_payload
 from .ledger import AppendOnlyLedger, LedgerError
 
@@ -30,7 +31,10 @@ def _index_check(sqlite_path: Path, events: list[dict[str, Any]]) -> tuple[list[
         "projection_metadata", "frozen_decisions", "evaluation_jobs",
         "followup_evidence", "model_outcomes",
     }
-    connection = sqlite3.connect(sqlite_path)
+    try:
+        connection = open_readonly_sqlite(sqlite_path)
+    except (FileNotFoundError, sqlite3.Error) as exc:
+        return [f"index read failure: {exc}"], counts
     try:
         tables = {
             row[0]
