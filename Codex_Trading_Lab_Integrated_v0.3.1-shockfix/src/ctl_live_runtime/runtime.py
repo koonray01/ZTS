@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -65,13 +67,25 @@ class LiveRuntime:
         self.audit.append("SESSION_STOPPED", {"session_id": self.session.state["session_id"]}, created_at=now)
         return self.session.state
 
-    def process_snapshot(self, snapshot: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
+    def process_snapshot(
+        self,
+        snapshot: dict[str, Any],
+        *,
+        now: datetime | None = None,
+        tfi_shadow_source: str | None = None,
+    ) -> dict[str, Any]:
         current_time = now or utc_now()
         if self.session.state["state"] == "STOPPED":
             raise RuntimeError("Cannot process snapshots after session stop.")
 
         try:
             decision = run_decision_core(snapshot)
+            if tfi_shadow_source is not None:
+                decision["advisory_shadow"] = _build_tfi_advisory_shadow(
+                    decision,
+                    snapshot,
+                    tfi_shadow_source,
+                )
             watcher = diff_decision_state(
                 self.previous_state,
                 decision,
@@ -187,3 +201,62 @@ class LiveRuntime:
         )
         self.audit.append("PART3_DECISION", decision, created_at=now)
         return decision
+
+
+def _canonical_hash(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return sha256(encoded.encode("utf-8")).hexdigest().upper()
+
+
+def _build_tfi_advisory_shadow(
+    decision: dict[str, Any],
+    snapshot: dict[str, Any],
+    source_path: str,
+) -> dict[str, Any]:
+    source = json.loads(Path(source_path).read_text(encoding="utf-8"))
+    authority = {
+        "entry_packet": decision["entry_packet"],
+        "execution_permission": decision["execution_permission"],
+    }
+    authority_before = _canonical_hash(authority)
+    board = source.get("market_board") if isinstance(source.get("market_board"), list) else []
+    data_qc = source.get("data_qc") if isinstance(source.get("data_qc"), dict) else {}
+    accepted = data_qc.get("status") == "PASS" and bool(board) and all(
+        isinstance(row, dict) and row.get("quality") == "FRESH" for row in board
+    )
+    tfi_context = None
+    reasons = []
+    if accepted:
+        tfi_context = {
+            "status": "OBSERVATION_ONLY",
+            "snapshot_id": snapshot["snapshot_id"],
+            "source_run_id": source.get("run_id"),
+            "captured_at_utc": source.get("timestamp_utc"),
+            "evaluation_end_utc": source.get("evaluation_end_utc") or source.get("bar_close_utc"),
+            "data_quality": "PASS",
+            "freshness": "FRESH",
+            "permission_state": "UNCHANGED",
+            "execution_impact": "none",
+            "can_execute": False,
+            "tfi_permission_override": 0,
+        }
+        reasons.append("READ_ONLY_TFI_CONTEXT_ATTACHED")
+    else:
+        reasons.append("TFI_CONTEXT_REJECTED")
+    authority_after = _canonical_hash(authority)
+    return {
+        "schema_version": "0.1",
+        "status": "SHADOW_ACCEPTED" if accepted else "CONTEXT_UNKNOWN",
+        "reason_codes": reasons,
+        "tfi_context": tfi_context,
+        "authority_hash_before": authority_before,
+        "authority_hash_after": authority_after,
+        "candidate_permission_invariant": authority_before == authority_after,
+        "trade_write_enabled": False,
+        "auto_execution_enabled": False,
+        "manual_confirmation_required": True,
+        "order_actions": 0,
+        "permission_leakage": 0,
+        "tfi_permission_override": 0,
+        "execution_impact": "none",
+    }
