@@ -13,6 +13,7 @@ from .recorder import (
 )
 from .index import rebuild_index
 from .verify import verify_registry
+from .catchup import registry_status, run_catchup
 
 __all__ = [
     "AppendOnlyLedger",
@@ -31,6 +32,8 @@ __all__ = [
     "revise_decision",
     "rebuild_index",
     "verify_registry",
+    "run_catchup",
+    "registry_status",
     "validate_event_chain",
     "validate_phase2_payload",
     "PHASE2_EVENT_TYPES",

@@ -141,6 +141,26 @@ def _insert_event(connection: sqlite3.Connection, event: dict[str, Any]) -> None
     )
 
 
+def _update_job_state(
+    connection: sqlite3.Connection,
+    decision_id: str,
+    horizon: str,
+    state: str,
+) -> None:
+    row = connection.execute(
+        "SELECT job_id, payload_json FROM evaluation_jobs WHERE decision_id=? AND horizon=?",
+        (decision_id, horizon),
+    ).fetchone()
+    if row is None:
+        return
+    payload = json.loads(row[1])
+    payload["state"] = state
+    connection.execute(
+        "UPDATE evaluation_jobs SET state=?, payload_json=? WHERE job_id=?",
+        (state, json.dumps(payload, ensure_ascii=False, sort_keys=True), row[0]),
+    )
+
+
 def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) -> None:
     payload = event["payload"]
     event_type = event["event_type"]
@@ -207,6 +227,7 @@ def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) ->
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
             ),
         )
+        _update_job_state(connection, payload["decision_id"], payload["horizon"], "EVIDENCE_COLLECTED")
     elif event_type == "MODEL_OUTCOME_RECORDED":
         connection.execute(
             """INSERT INTO model_outcomes
@@ -220,6 +241,7 @@ def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) ->
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
             ),
         )
+        _update_job_state(connection, payload["decision_id"], payload["horizon"], "LABELED")
     if analysis_id:
         for evidence_ref in payload.get("evidence_refs", []):
             connection.execute(
@@ -281,11 +303,14 @@ def rebuild_index(ledger_path: Path, sqlite_path: Path) -> dict[str, int]:
         temporary.unlink(missing_ok=True)
         raise
 
-    with sqlite3.connect(sqlite_path) as connection:
+    connection = sqlite3.connect(sqlite_path)
+    try:
         result = {}
         for table in (
             "events", "analyses", "views", "decisions", "evidence_refs",
             "frozen_decisions", "evaluation_jobs", "followup_evidence", "model_outcomes",
         ):
             result[table] = int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+    finally:
+        connection.close()
     return result
