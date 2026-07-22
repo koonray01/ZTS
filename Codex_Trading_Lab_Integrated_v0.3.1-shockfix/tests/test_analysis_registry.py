@@ -276,7 +276,7 @@ def test_registry_verifier_passes_valid_ledger_and_index(tmp_path: Path) -> None
 
     assert report["status"] == "PASS"
     assert report["errors"] == []
-    assert report["coverage"]["outcome_labeling"] == "DEFERRED_PHASE_2"
+    assert report["coverage"]["outcome_labeling"] == "PHASE2_ENABLED"
     assert report["safety"]["order_actions"] == 0
 
 

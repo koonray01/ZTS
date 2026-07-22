@@ -137,6 +137,12 @@ def verify_registry(ledger_path: Path, sqlite_path: Path | None = None) -> dict[
         status = "CONDITIONAL"
     else:
         status = "PASS"
+    if "projection_metadata" not in index_counts:
+        outcome_labeling = "PHASE2_STATUS_UNKNOWN"
+    elif events:
+        outcome_labeling = "PHASE2_ENABLED"
+    else:
+        outcome_labeling = "PHASE2_ENABLED_NO_EVENTS"
     return {
         "status": status,
         "errors": sorted(set(errors)),
@@ -146,7 +152,7 @@ def verify_registry(ledger_path: Path, sqlite_path: Path | None = None) -> dict[
         "coverage": {
             "source_class": dict(sorted(source_counts.items())),
             "integrity_tier": dict(sorted(integrity_counts.items())),
-            "outcome_labeling": "DEFERRED_PHASE_2",
+            "outcome_labeling": outcome_labeling,
             "headline_metrics_eligible": integrity_counts.get("VERIFIED", 0),
         },
     }

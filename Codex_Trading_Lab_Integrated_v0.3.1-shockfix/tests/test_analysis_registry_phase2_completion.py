@@ -14,6 +14,8 @@ import tools.build_analysis_performance_report as performance_cli
 import tools.run_analysis_outcome_worker as worker_cli
 from ctl_analysis_registry.acceptance import worker_milestone_gate
 from ctl_analysis_registry.paths import CONFIG_SCHEMA_VERSION, PRODUCER_VERSION
+from ctl_analysis_registry.index import rebuild_index
+from ctl_analysis_registry.verify import verify_registry
 
 
 @pytest.mark.parametrize(
@@ -104,6 +106,16 @@ def test_worker_milestone_requires_cycle_and_zero_trade_safety() -> None:
     assert worker_milestone_gate(complete) == "PHASE2_WORKER_COMPLETE"
     assert worker_milestone_gate({**complete, "cycles": 0}) == "PHASE2_WORKER_BLOCKED"
     assert worker_milestone_gate({**complete, "safety": {**complete["safety"], "order_actions": 1}}) == "PHASE2_WORKER_BLOCKED"
+
+
+def test_empty_phase2_projection_is_enabled_but_has_no_events(tmp_path: Path) -> None:
+    ledger = tmp_path / "events.jsonl"
+    sqlite = tmp_path / "index.sqlite"
+    rebuild_index(ledger, sqlite)
+
+    report = verify_registry(ledger, sqlite)
+
+    assert report["coverage"]["outcome_labeling"] == "PHASE2_ENABLED_NO_EVENTS"
 
 
 def test_audit_cli_uses_canonical_paths_and_worker_control(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
