@@ -25,7 +25,11 @@ def _schema() -> dict[str, Any]:
 def _index_check(sqlite_path: Path, events: list[dict[str, Any]]) -> tuple[list[str], dict[str, int]]:
     errors: list[str] = []
     counts: dict[str, int] = {}
-    required = {"events", "analyses", "views", "decisions", "evidence_refs"}
+    required = {
+        "events", "analyses", "views", "decisions", "evidence_refs",
+        "projection_metadata", "frozen_decisions", "evaluation_jobs",
+        "followup_evidence", "model_outcomes",
+    }
     connection = sqlite3.connect(sqlite_path)
     try:
         tables = {
@@ -44,6 +48,12 @@ def _index_check(sqlite_path: Path, events: list[dict[str, Any]]) -> tuple[list[
         expected = {event["event_id"]: event["event_hash"] for event in events}
         if indexed != expected:
             errors.append("index event hashes/count do not match ledger")
+        metadata = connection.execute(
+            "SELECT projection_schema_version, ledger_head_hash, event_count FROM projection_metadata"
+        ).fetchall()
+        expected_head = events[-1]["event_hash"] if events else None
+        if metadata != [("ANALYSIS_REGISTRY_PROJECTION_V0_2", expected_head, len(events))]:
+            errors.append("index projection metadata does not match ledger head/count")
     except sqlite3.Error as exc:
         errors.append(f"index read failure: {exc}")
     finally:

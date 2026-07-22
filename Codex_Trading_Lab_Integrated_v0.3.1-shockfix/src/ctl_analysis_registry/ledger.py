@@ -49,6 +49,23 @@ class AppendOnlyLedger:
         return any(event.get("event_id") == event_id for event in self.read_all())
 
     def append(self, event: dict[str, Any]) -> str:
+        return self.append_fsynced(event)
+
+    def assert_complete_tail(self) -> None:
+        """Reject a non-empty ledger whose last record lacks its newline commit marker."""
+
+        if not self.path.exists() or self.path.stat().st_size == 0:
+            return
+        try:
+            with self.path.open("rb") as handle:
+                handle.seek(-1, os.SEEK_END)
+                if handle.read(1) != b"\n":
+                    raise LedgerError("partial ledger tail: final newline is missing")
+        except OSError as exc:
+            raise LedgerError(f"cannot inspect ledger tail: {self.path}") from exc
+
+    def append_fsynced(self, event: dict[str, Any]) -> str:
+        self.assert_complete_tail()
         events = self.read_all()
         errors = validate_event_chain(events)
         if errors:
@@ -75,4 +92,7 @@ class AppendOnlyLedger:
                 os.fsync(handle.fileno())
         except OSError as exc:
             raise LedgerError(f"cannot append ledger: {self.path}") from exc
+        appended = self.read_all()
+        if not appended or appended[-1].get("event_hash") != event.get("event_hash"):
+            raise LedgerError("appended event hash verification failed")
         return event_id

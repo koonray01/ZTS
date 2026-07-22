@@ -12,6 +12,7 @@ from typing import Any
 from jsonschema import validate
 
 from .events import validate_event_chain
+from .contracts import V2_SCHEMA_VERSION, validate_phase2_payload
 from .ledger import LedgerError
 
 
@@ -24,6 +25,11 @@ def _schema() -> dict[str, Any]:
 
 DDL = """
 PRAGMA foreign_keys = ON;
+CREATE TABLE projection_metadata (
+    projection_schema_version TEXT NOT NULL,
+    ledger_head_hash TEXT,
+    event_count INTEGER NOT NULL
+);
 CREATE TABLE events (
     event_id TEXT PRIMARY KEY,
     event_hash TEXT NOT NULL,
@@ -67,9 +73,57 @@ CREATE TABLE evidence_refs (
     evidence_ref TEXT NOT NULL,
     PRIMARY KEY (analysis_id, event_id, evidence_ref)
 );
+CREATE TABLE frozen_decisions (
+    decision_id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL REFERENCES events(event_id),
+    analysis_id TEXT NOT NULL,
+    view_id TEXT NOT NULL,
+    system TEXT NOT NULL,
+    decision_type TEXT NOT NULL,
+    decision_subtype TEXT NOT NULL,
+    prediction_family_id TEXT NOT NULL,
+    semantic_opportunity_id TEXT,
+    variant_id TEXT,
+    decision_time TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
+CREATE TABLE evaluation_jobs (
+    job_id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL REFERENCES events(event_id),
+    decision_id TEXT NOT NULL,
+    horizon TEXT NOT NULL,
+    labeling_policy_version TEXT NOT NULL,
+    state TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    terminal_reason TEXT,
+    payload_json TEXT NOT NULL
+);
+CREATE TABLE followup_evidence (
+    evidence_id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL REFERENCES events(event_id),
+    decision_id TEXT NOT NULL,
+    horizon TEXT NOT NULL,
+    price_quality TEXT NOT NULL,
+    manifest_hash TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
+CREATE TABLE model_outcomes (
+    outcome_id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL REFERENCES events(event_id),
+    decision_id TEXT NOT NULL,
+    decision_type TEXT NOT NULL,
+    system TEXT NOT NULL,
+    horizon TEXT NOT NULL,
+    original_policy_version TEXT NOT NULL,
+    classification TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
 CREATE INDEX idx_events_analysis ON events(json_extract(payload_json, '$.analysis_id'));
 CREATE INDEX idx_decisions_analysis ON decisions(analysis_id);
 CREATE INDEX idx_evidence_analysis ON evidence_refs(analysis_id);
+CREATE INDEX idx_jobs_due ON evaluation_jobs(state, due_at);
+CREATE UNIQUE INDEX idx_jobs_identity ON evaluation_jobs(decision_id, horizon, labeling_policy_version);
+CREATE UNIQUE INDEX idx_outcomes_identity ON model_outcomes(decision_id, horizon, original_policy_version);
 """
 
 
@@ -114,6 +168,58 @@ def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) ->
                 json.dumps(payload.get("horizons", []), sort_keys=True),
             ),
         )
+    elif event_type == "DECISION_FROZEN":
+        connection.execute(
+            """INSERT INTO frozen_decisions
+            (decision_id, event_id, analysis_id, view_id, system, decision_type,
+             decision_subtype, prediction_family_id, semantic_opportunity_id,
+             variant_id, decision_time, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                payload["decision_id"], event["event_id"], payload["analysis_id"],
+                payload["view_id"], payload["system"], payload["decision_type"],
+                payload["decision_subtype"], payload["prediction_family_id"],
+                payload.get("semantic_opportunity_id"), payload.get("variant_id"),
+                payload["decision_time"], json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+    elif event_type == "EVALUATION_JOB_SCHEDULED":
+        connection.execute(
+            """INSERT INTO evaluation_jobs
+            (job_id, event_id, decision_id, horizon, labeling_policy_version,
+             state, due_at, terminal_reason, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                payload["job_id"], event["event_id"], payload["decision_id"],
+                payload["horizon"], payload["labeling_policy_version"], payload["state"],
+                payload["due_at"], payload.get("terminal_reason"),
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+    elif event_type == "FOLLOWUP_EVIDENCE_RECORDED":
+        connection.execute(
+            """INSERT INTO followup_evidence
+            (evidence_id, event_id, decision_id, horizon, price_quality, manifest_hash, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                payload["evidence_id"], event["event_id"], payload["decision_id"],
+                payload["horizon"], payload["price_quality"], payload["manifest_hash"],
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+    elif event_type == "MODEL_OUTCOME_RECORDED":
+        connection.execute(
+            """INSERT INTO model_outcomes
+            (outcome_id, event_id, decision_id, decision_type, system, horizon,
+             original_policy_version, classification, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                payload["outcome_id"], event["event_id"], payload["decision_id"],
+                payload["decision_type"], payload["system"], payload["horizon"],
+                payload["original_policy_version"], payload["classification"],
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            ),
+        )
     if analysis_id:
         for evidence_ref in payload.get("evidence_refs", []):
             connection.execute(
@@ -137,6 +243,12 @@ def rebuild_index(ledger_path: Path, sqlite_path: Path) -> dict[str, int]:
             validate(event, schema)
         except Exception as exc:  # jsonschema raises several validation classes across versions.
             raise LedgerError(f"invalid event schema: {event.get('event_id')}") from exc
+        if event.get("schema_version") == V2_SCHEMA_VERSION:
+            payload_errors = validate_phase2_payload(event["event_type"], event["payload"])
+            if payload_errors:
+                raise LedgerError(
+                    f"invalid event payload: {event.get('event_id')}: " + "; ".join(payload_errors)
+                )
 
     sqlite_path = Path(sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
@@ -150,7 +262,18 @@ def rebuild_index(ledger_path: Path, sqlite_path: Path) -> dict[str, int]:
             for event in events:
                 _insert_event(connection, event)
                 _insert_projection(connection, event)
+            ledger_head_hash = events[-1]["event_hash"] if events else None
+            connection.execute(
+                "INSERT INTO projection_metadata (projection_schema_version, ledger_head_hash, event_count) VALUES (?, ?, ?)",
+                ("ANALYSIS_REGISTRY_PROJECTION_V0_2", ledger_head_hash, len(events)),
+            )
             connection.commit()
+            projected_count = int(connection.execute("SELECT COUNT(*) FROM events").fetchone()[0])
+            metadata = connection.execute(
+                "SELECT ledger_head_hash, event_count FROM projection_metadata"
+            ).fetchone()
+            if projected_count != len(events) or metadata != (ledger_head_hash, len(events)):
+                raise LedgerError("projection does not match ledger head/count")
         finally:
             connection.close()
         os.replace(temporary, sqlite_path)
@@ -160,6 +283,9 @@ def rebuild_index(ledger_path: Path, sqlite_path: Path) -> dict[str, int]:
 
     with sqlite3.connect(sqlite_path) as connection:
         result = {}
-        for table in ("events", "analyses", "views", "decisions", "evidence_refs"):
+        for table in (
+            "events", "analyses", "views", "decisions", "evidence_refs",
+            "frozen_decisions", "evaluation_jobs", "followup_evidence", "model_outcomes",
+        ):
             result[table] = int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
     return result
