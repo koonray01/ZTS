@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from jsonschema import validate
 
-from .events import build_event
-from .identity import stable_id
+from .contracts import validate_phase2_payload
+from .events import build_event, build_v2_event
+from .identity import canonical_json, sha256_hex, stable_id
 from .ledger import AppendOnlyLedger
 
 
@@ -20,6 +22,262 @@ BUNDLE_SCHEMA = ROOT / "schemas" / "analysis_registry_bundle.schema.json"
 SOURCE_CLASSES = {"LIVE_MT5", "REPLAY", "SYNTHETIC", "CHAT_ONLY"}
 INTEGRITY_TIERS = {"VERIFIED", "PARTIAL", "CHAT_ONLY", "UNMATCHED"}
 VALID_ACTIONS = {"SETUP", "WATCH", "WAIT", "HOLD", "REJECT", "ABSTAIN"}
+MATERIAL_REVISION_FIELDS = {
+    "direction", "activation", "reference_price", "atr", "horizons", "rules",
+    "labeling_policy_version", "setup_geometry",
+}
+
+
+def _decision_time(snapshot: dict[str, Any]) -> str:
+    return str(snapshot.get("capture_time") or snapshot.get("last_tick_time") or "1970-01-01T00:00:00+00:00")
+
+
+def _source_bindings(snapshot: dict[str, Any]) -> dict[str, Any]:
+    refs = [str(item) for item in snapshot.get("evidence_refs", []) if item]
+    return {
+        "snapshot_id": str(snapshot.get("snapshot_id") or "UNKNOWN"),
+        "manifest_hash": sha256_hex(canonical_json(snapshot)),
+        "evidence_hashes": [sha256_hex(ref) for ref in refs] or [sha256_hex(str(snapshot.get("snapshot_id")))],
+    }
+
+
+def _quality(snapshot: dict[str, Any], *, scorable: bool) -> dict[str, Any]:
+    qc = snapshot.get("qc", {}).get("decision")
+    freshness = snapshot.get("freshness", {}).get("status")
+    source_ok = qc == "PASS"
+    fresh = freshness == "FRESH"
+    return {
+        "source_qc": "PASS" if source_ok else "FAIL" if qc else "UNKNOWN",
+        "freshness": "FRESH" if fresh else "STALE" if freshness else "UNKNOWN",
+        "integrity_tier": "VERIFIED" if source_ok and fresh else "PARTIAL",
+        "scorable_status": "SCORABLE" if scorable and source_ok and fresh else "NON_SCORABLE",
+    }
+
+
+def _safety() -> dict[str, Any]:
+    return {
+        "trade_write_enabled": False,
+        "auto_execution_enabled": False,
+        "order_actions": 0,
+        "permission_leakage": 0,
+    }
+
+
+def _role(value: Any) -> str:
+    token = str(value or "NONE").upper()
+    if token == "SECONDARY":
+        return "ALTERNATIVE"
+    return token if token in {"PRIMARY", "ALTERNATIVE", "CONTROL", "NONE"} else "NONE"
+
+
+def _freeze_claim(
+    claim: dict[str, Any],
+    *,
+    snapshot: dict[str, Any],
+    analysis_id: str,
+    view_id: str,
+    system: str,
+    engine_version: str,
+) -> dict[str, Any]:
+    decision_type = str(claim.get("decision_type") or "DIRECTIONAL").upper()
+    subtype = str(claim.get("decision_subtype") or decision_type)
+    horizons = [str(item) for item in claim.get("horizons", []) if item]
+    semantic_root = str(
+        claim.get("semantic_opportunity_id")
+        or claim.get("opportunity_group_id")
+        or claim.get("scenario_id")
+        or claim.get("candidate_id")
+        or claim.get("claim_id")
+        or "GENERAL"
+    )
+    variant_id = claim.get("variant_id")
+    policy = str(
+        claim.get("labeling_policy_version")
+        or ("DIRECTIONAL_TERMINAL_ATR_V1" if decision_type == "DIRECTIONAL" else "ORDERED_SCENARIO_V1" if decision_type == "SCENARIO" else "SINGLE_TARGET")
+    )
+    family_id = stable_id("PREDICTION_FAMILY", analysis_id, system, decision_type, semantic_root)
+    decision_id = stable_id("DECISION_V2", family_id, variant_id, sha256_hex(canonical_json(sorted(horizons))), policy)
+    decision_time = _decision_time(snapshot)
+    missing: list[str] = []
+    if not horizons:
+        missing.append("MISSING_HORIZONS")
+    rules = claim.get("rules") if isinstance(claim.get("rules"), dict) else None
+    if decision_type == "SCENARIO":
+        steps = claim.get("event_steps")
+        if not isinstance(steps, list) or not steps:
+            missing.append("MISSING_EVENT_STEPS")
+        if not claim.get("expiry_time"):
+            missing.append("MISSING_EXPIRY")
+        if not isinstance(claim.get("invalidation"), dict):
+            missing.append("MISSING_INVALIDATION")
+        rules = {
+            "success": steps or [], "failure": claim.get("invalidation") or {},
+            "invalidation": claim.get("invalidation") or {}, "expiry": claim.get("expiry_time") or "UNKNOWN",
+        }
+    elif decision_type == "DIRECTIONAL":
+        rules = rules or {
+            "success": "SIGNED_RETURN_ATR_GTE_0_25", "failure": "SIGNED_RETURN_ATR_LTE_NEG_0_25",
+            "invalidation": "SOURCE_BINDING_INVALID", "expiry": "HORIZON_END",
+        }
+        if subtype == "UNCONDITIONAL_DIRECTIONAL":
+            if claim.get("reference_price") is None:
+                missing.append("MISSING_REFERENCE_PRICE")
+            atr = claim.get("atr")
+            if not isinstance(atr, dict) or not atr.get("value"):
+                missing.append("MISSING_ATR")
+        elif subtype == "CONDITIONAL_DIRECTIONAL" and not isinstance(claim.get("activation"), dict):
+            missing.append("MISSING_ACTIVATION")
+    elif decision_type == "SETUP":
+        for field in ("entry", "stop", "scoring_target", "expiry_time"):
+            if claim.get(field) is None:
+                missing.append(f"MISSING_{field.upper()}")
+        rules = {
+            "success": "SCORING_TARGET_FIRST", "failure": "STOP_FIRST",
+            "invalidation": claim.get("invalidation") or "INVALID_INPUT",
+            "expiry": claim.get("expiry_time") or "UNKNOWN",
+        }
+    else:
+        rules = rules or {"success": "TARGET_FIRST", "failure": "STOP_FIRST", "invalidation": "INVALID_INPUT", "expiry": claim.get("expiry_time") or "UNKNOWN"}
+    scorable = not missing
+    quality = _quality(snapshot, scorable=scorable)
+    if quality["scorable_status"] != "SCORABLE" and not missing:
+        missing.append("SOURCE_QUALITY_NOT_SCORABLE")
+    frozen: dict[str, Any] = {
+        "decision_id": decision_id, "analysis_id": analysis_id, "view_id": view_id,
+        "system": system, "decision_type": decision_type, "decision_subtype": subtype,
+        "prediction_family_id": family_id, "semantic_opportunity_id": semantic_root,
+        "variant_id": variant_id, "symbol": str(snapshot.get("symbol") or "UNKNOWN"),
+        "direction": str(claim.get("direction") or "UNKNOWN").upper(),
+        "action": _action(claim.get("action"), "WATCH"),
+        "role": _role(claim.get("role") or claim.get("rank")),
+        "decision_time": decision_time, "evaluation_start": decision_time,
+        "horizons": horizons, "labeling_policy_version": policy,
+        "engine_version": engine_version,
+        "timeframe_scope": [str(item) for item in claim.get("timeframe_scope", []) if item] or sorted({str(item.get("timeframe")) for item in claim.get("event_steps", []) if isinstance(item, dict) and item.get("timeframe")}) or ["UNKNOWN"],
+        "rules": rules,
+        "market_context": {
+            "regime": str(claim.get("regime") or "UNKNOWN"),
+            "volatility": str(claim.get("volatility") or "UNKNOWN"),
+        },
+        "source_bindings": _source_bindings(snapshot), "quality": quality,
+        "non_scorable_reasons": sorted(set(missing)), "safety": _safety(),
+        "source_class": str(snapshot.get("source") or "CHAT_ONLY"),
+    }
+    if subtype == "UNCONDITIONAL_DIRECTIONAL" and claim.get("reference_price") is not None:
+        frozen["reference_price"] = {"method": "DECISION_TIME_MID", "value": float(claim["reference_price"])}
+        frozen["atr"] = deepcopy(claim.get("atr"))
+    elif subtype == "CONDITIONAL_DIRECTIONAL" and isinstance(claim.get("activation"), dict):
+        frozen["activation"] = deepcopy(claim["activation"])
+    if decision_type == "SETUP":
+        frozen["setup_geometry"] = {
+            "side": str(claim.get("side") or "UNKNOWN").upper(),
+            "entry": claim.get("entry"), "stop": claim.get("stop"),
+            "scoring_target": claim.get("scoring_target"),
+            "expiry_time": claim.get("expiry_time"),
+        }
+    return frozen
+
+
+def freeze_zenith_decisions(
+    decision_state: dict[str, Any],
+    snapshot: dict[str, Any],
+    analysis_id: str,
+) -> list[dict[str, Any]]:
+    if decision_state.get("snapshot_id") != snapshot.get("snapshot_id"):
+        raise ValueError("Zenith snapshot binding mismatch")
+    view_id = stable_id("VIEW", analysis_id, "ZENITH")
+    engine_version = str(decision_state.get("engine_version") or "ZENITH_UNKNOWN")
+    market = decision_state.get("market_packet", {})
+    frozen: list[dict[str, Any]] = []
+    for scenario in decision_state.get("scenario_packet", {}).get("scenarios", []):
+        claim = {
+            **scenario,
+            "decision_type": "SCENARIO",
+            "decision_subtype": "ORDERED_EVENT_SCENARIO",
+            "action": "WATCH" if scenario.get("status") in {"WATCHING", "ACTIVE"} else "ABSTAIN",
+            "role": scenario.get("rank", "NONE"),
+            "semantic_opportunity_id": scenario.get("opportunity_group_id") or scenario.get("scenario_id"),
+            "timeframe_scope": sorted({str(step.get("timeframe")) for step in scenario.get("event_steps", []) if isinstance(step, dict) and step.get("timeframe")}),
+            "regime": market.get("regime", "UNKNOWN"),
+            "volatility": market.get("volatility", "UNKNOWN"),
+        }
+        frozen.append(_freeze_claim(claim, snapshot=snapshot, analysis_id=analysis_id, view_id=view_id, system="ZENITH", engine_version=engine_version))
+    for candidate in decision_state.get("entry_packet", {}).get("candidates", []):
+        claim = {
+            **candidate,
+            "decision_type": "SETUP",
+            "decision_subtype": "SINGLE_TARGET_SETUP",
+            "action": "SETUP",
+            "role": candidate.get("role", "PRIMARY"),
+            "semantic_opportunity_id": candidate.get("semantic_candidate_id") or candidate.get("candidate_id"),
+            "timeframe_scope": [candidate.get("timeframe", "UNKNOWN")],
+            "regime": market.get("regime", "UNKNOWN"),
+            "volatility": market.get("volatility", "UNKNOWN"),
+            "labeling_policy_version": "SINGLE_TARGET",
+        }
+        frozen.append(_freeze_claim(claim, snapshot=snapshot, analysis_id=analysis_id, view_id=view_id, system="ZENITH", engine_version=engine_version))
+    return frozen
+
+
+def _parse_time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def revise_decision(
+    original: dict[str, Any],
+    changes: dict[str, Any],
+    *,
+    revision_time: datetime,
+) -> dict[str, Any]:
+    material = bool(MATERIAL_REVISION_FIELDS & changes.keys())
+    evaluation_start = _parse_time(str(original["evaluation_start"]))
+    if material and revision_time >= evaluation_start:
+        return {
+            "decision_id": original["decision_id"],
+            "original_decision_id": original["decision_id"],
+            "revision_type": "AUDIT_ONLY_LATE_CORRECTION",
+            "revision_time": revision_time.isoformat(),
+            "proposed_changes": deepcopy(changes),
+        }
+    revised = deepcopy(original)
+    revised.update(deepcopy(changes))
+    revised["original_decision_id"] = original["decision_id"]
+    revised["revision_time"] = revision_time.isoformat()
+    revised["revision_type"] = "MATERIAL_REVISION" if material else "NON_MATERIAL_CORRECTION"
+    if material:
+        revised["decision_id"] = stable_id("DECISION_REVISION", original["decision_id"], canonical_json(changes), revision_time.isoformat())
+    return revised
+
+
+def record_frozen_decisions(
+    ledger: AppendOnlyLedger,
+    decisions: list[dict[str, Any]],
+) -> list[str]:
+    event_ids: list[str] = []
+    for decision in decisions:
+        payload_errors = validate_phase2_payload("DECISION_FROZEN", decision)
+        if payload_errors:
+            raise ValueError("invalid frozen decision: " + "; ".join(payload_errors))
+        event_id = stable_id("EVENT", "DECISION_FROZEN", decision["decision_id"])
+        existing = next((item for item in ledger.read_all() if item.get("event_id") == event_id), None)
+        if existing is not None:
+            event_ids.append(ledger.append_fsynced(existing))
+            continue
+        events = ledger.read_all()
+        previous_hash = events[-1]["event_hash"] if events else None
+        event = build_v2_event(
+            {
+                "event_id": event_id, "event_type": "DECISION_FROZEN",
+                "event_time": decision["decision_time"], "decision_time": decision["decision_time"],
+                "source_class": decision["source_class"],
+                "integrity_tier": decision["quality"]["integrity_tier"],
+                "producer": "ctl_analysis_registry.recorder", "payload": decision,
+            },
+            previous_hash=previous_hash,
+        )
+        event_ids.append(ledger.append_fsynced(event))
+    return event_ids
 
 
 def _read_json(path: Path) -> dict[str, Any]:
