@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/evaluation_job.schema.json",
+  "title": "Evaluation Job",
+  "type": "object",
+  "required": ["job_id", "decision_id", "horizon", "labeling_policy_version", "state", "due_at", "safety"],
+  "properties": {
+    "job_id": {"type": "string", "minLength": 1},
+    "decision_id": {"type": "string", "minLength": 1},
+    "horizon": {"type": "string", "minLength": 1},
+    "labeling_policy_version": {"type": "string", "minLength": 1},
+    "state": {"enum": ["PENDING", "DUE", "EVIDENCE_COLLECTED", "LABELED", "INVALID_INPUT", "INSUFFICIENT_EVIDENCE", "EXPIRED_UNTRIGGERED", "INVALIDATED_BEFORE_ACTIVATION"]},
+    "due_at": {"type": "string", "format": "date-time"},
+    "terminal_reason": {"type": ["string", "null"]},
+    "safety": {
+      "type": "object",
+      "required": ["trade_write_enabled", "auto_execution_enabled", "order_actions", "permission_leakage"],
+      "properties": {
+        "trade_write_enabled": {"const": false},
+        "auto_execution_enabled": {"const": false},
+        "order_actions": {"const": 0},
+        "permission_leakage": {"const": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

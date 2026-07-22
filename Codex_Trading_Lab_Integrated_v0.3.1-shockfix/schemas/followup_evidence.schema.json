@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/followup_evidence.schema.json",
+  "title": "Follow-up Evidence",
+  "type": "object",
+  "required": ["evidence_id", "decision_id", "horizon", "symbol", "source_binding", "bars", "qc", "price_quality", "manifest_hash", "safety"],
+  "properties": {
+    "evidence_id": {"type": "string", "minLength": 1},
+    "decision_id": {"type": "string", "minLength": 1},
+    "horizon": {"type": "string", "minLength": 1},
+    "symbol": {"type": "string", "minLength": 1},
+    "source_binding": {"type": "object", "minProperties": 1},
+    "bars": {"type": "array", "items": {"type": "object"}},
+    "qc": {"type": "object", "minProperties": 1},
+    "price_quality": {"enum": ["TRUE_BID_ASK_TICKS", "BAR_SPREAD_RECONSTRUCTED", "MID_ONLY_PROXY"]},
+    "manifest_hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+    "safety": {
+      "type": "object",
+      "required": ["trade_write_enabled", "auto_execution_enabled", "order_actions", "permission_leakage"],
+      "properties": {
+        "trade_write_enabled": {"const": false},
+        "auto_execution_enabled": {"const": false},
+        "order_actions": {"const": 0},
+        "permission_leakage": {"const": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

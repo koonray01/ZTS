@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .identity import canonical_json, sha256_hex
+from .contracts import PHASE2_EVENT_TYPES, V2_SCHEMA_VERSION
 
 
 SCHEMA_VERSION = "ANALYSIS_REGISTRY_EVENT_V0_1"
@@ -34,6 +35,27 @@ def build_event(payload: dict[str, Any], *, previous_hash: str | None) -> dict[s
     event = {
         "schema_version": SCHEMA_VERSION,
         **payload,
+        "previous_event_hash": previous_hash,
+    }
+    event["event_hash"] = event_hash(event)
+    return event
+
+
+def build_v2_event(fields: dict[str, Any], *, previous_hash: str | None) -> dict[str, Any]:
+    """Build one Phase 2 event without changing Phase 1 construction or hashing."""
+
+    required = {
+        "event_id", "event_type", "event_time", "decision_time", "source_class",
+        "integrity_tier", "producer", "payload",
+    }
+    missing = sorted(required - set(fields))
+    if missing:
+        raise ValueError(f"missing event fields: {', '.join(missing)}")
+    if fields["event_type"] not in PHASE2_EVENT_TYPES:
+        raise ValueError(f"unsupported Phase 2 event type: {fields['event_type']}")
+    event = {
+        "schema_version": V2_SCHEMA_VERSION,
+        **fields,
         "previous_event_hash": previous_hash,
     }
     event["event_hash"] = event_hash(event)

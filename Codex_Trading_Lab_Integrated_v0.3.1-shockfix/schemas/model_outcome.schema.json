@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/model_outcome.schema.json",
+  "title": "Model Outcome",
+  "type": "object",
+  "required": ["outcome_id", "decision_id", "decision_type", "system", "horizon", "original_policy_version", "classification", "evidence_refs", "safety"],
+  "properties": {
+    "outcome_id": {"type": "string", "minLength": 1},
+    "decision_id": {"type": "string", "minLength": 1},
+    "decision_type": {"enum": ["DIRECTIONAL", "SCENARIO", "SETUP", "ABSTENTION"]},
+    "system": {"enum": ["ZENITH", "CHAT_MODEL"]},
+    "horizon": {"type": "string", "minLength": 1},
+    "original_policy_version": {"type": "string", "minLength": 1},
+    "classification": {"type": "string", "minLength": 1},
+    "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "safety": {
+      "type": "object",
+      "required": ["trade_write_enabled", "auto_execution_enabled", "order_actions", "permission_leakage"],
+      "properties": {
+        "trade_write_enabled": {"const": false},
+        "auto_execution_enabled": {"const": false},
+        "order_actions": {"const": 0},
+        "permission_leakage": {"const": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

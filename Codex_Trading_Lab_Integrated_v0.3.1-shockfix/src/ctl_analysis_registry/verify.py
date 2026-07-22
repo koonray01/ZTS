@@ -11,6 +11,7 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 from .events import validate_event_chain
+from .contracts import V2_SCHEMA_VERSION, validate_phase2_payload
 from .ledger import AppendOnlyLedger, LedgerError
 
 
@@ -76,6 +77,15 @@ def verify_registry(ledger_path: Path, sqlite_path: Path | None = None) -> dict[
             validate(event, schema)
         except ValidationError:
             errors.append(f"event schema invalid: {event.get('event_id')}")
+        if event.get("schema_version") == V2_SCHEMA_VERSION:
+            payload_errors = validate_phase2_payload(
+                str(event.get("event_type")),
+                event.get("payload") if isinstance(event.get("payload"), dict) else {},
+            )
+            errors.extend(
+                f"event payload invalid: {event.get('event_id')}: {error}"
+                for error in payload_errors
+            )
         source_class = event.get("source_class")
         integrity_tier = event.get("integrity_tier")
         if source_class not in {"LIVE_MT5", "REPLAY", "SYNTHETIC", "CHAT_ONLY"}:

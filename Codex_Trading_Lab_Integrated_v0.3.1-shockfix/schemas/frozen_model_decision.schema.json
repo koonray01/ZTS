@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-trading-lab.local/schemas/frozen_model_decision.schema.json",
+  "title": "Frozen Model Decision",
+  "type": "object",
+  "required": [
+    "decision_id", "analysis_id", "view_id", "system", "decision_type",
+    "decision_subtype", "prediction_family_id", "semantic_opportunity_id",
+    "variant_id", "symbol", "action", "decision_time", "horizons",
+    "labeling_policy_version", "engine_version", "timeframe_scope", "rules",
+    "market_context", "source_bindings", "quality", "safety"
+  ],
+  "properties": {
+    "decision_id": {"type": "string", "minLength": 1},
+    "analysis_id": {"type": "string", "minLength": 1},
+    "view_id": {"type": "string", "minLength": 1},
+    "system": {"enum": ["ZENITH", "CHAT_MODEL"]},
+    "decision_type": {"enum": ["DIRECTIONAL", "SCENARIO", "SETUP", "ABSTENTION"]},
+    "decision_subtype": {"type": "string", "minLength": 1},
+    "prediction_family_id": {"type": "string", "minLength": 1},
+    "semantic_opportunity_id": {"type": ["string", "null"]},
+    "variant_id": {"type": ["string", "null"]},
+    "symbol": {"type": "string", "minLength": 1},
+    "direction": {"enum": ["BULLISH", "BEARISH", "RANGE", "NEUTRAL", "UNKNOWN"]},
+    "action": {"type": "string", "minLength": 1},
+    "role": {"enum": ["PRIMARY", "ALTERNATIVE", "CONTROL", "NONE"]},
+    "decision_time": {"type": "string", "format": "date-time"},
+    "horizons": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "labeling_policy_version": {"type": "string", "minLength": 1},
+    "engine_version": {"type": "string", "minLength": 1},
+    "timeframe_scope": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "rules": {
+      "type": "object",
+      "required": ["success", "failure", "invalidation", "expiry"],
+      "properties": {
+        "success": {}, "failure": {}, "invalidation": {}, "expiry": {}
+      },
+      "additionalProperties": true
+    },
+    "market_context": {
+      "type": "object",
+      "required": ["regime", "volatility"],
+      "properties": {"regime": {"type": "string"}, "volatility": {"type": "string"}},
+      "additionalProperties": true
+    },
+    "source_bindings": {
+      "type": "object",
+      "required": ["snapshot_id", "manifest_hash", "evidence_hashes"],
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "manifest_hash": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "evidence_hashes": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}}
+      },
+      "additionalProperties": false
+    },
+    "quality": {
+      "type": "object",
+      "required": ["source_qc", "freshness", "integrity_tier", "scorable_status"],
+      "properties": {
+        "source_qc": {"enum": ["PASS", "FAIL", "UNKNOWN"]},
+        "freshness": {"enum": ["FRESH", "STALE", "UNKNOWN"]},
+        "integrity_tier": {"enum": ["VERIFIED", "PARTIAL", "CHAT_ONLY", "UNMATCHED"]},
+        "scorable_status": {"enum": ["SCORABLE", "NON_SCORABLE", "INVALID_INPUT"]}
+      },
+      "additionalProperties": false
+    },
+    "safety": {
+      "type": "object",
+      "required": ["trade_write_enabled", "auto_execution_enabled", "order_actions", "permission_leakage"],
+      "properties": {
+        "trade_write_enabled": {"const": false},
+        "auto_execution_enabled": {"const": false},
+        "order_actions": {"const": 0},
+        "permission_leakage": {"const": 0}
+      },
+      "additionalProperties": false
+    },
+    "reference_price": {
+      "type": "object",
+      "required": ["method", "value"],
+      "properties": {"method": {"const": "DECISION_TIME_MID"}, "value": {"type": "number"}},
+      "additionalProperties": false
+    },
+    "atr": {
+      "type": "object",
+      "required": ["timeframe", "period", "method", "value"],
+      "properties": {
+        "timeframe": {"type": "string"}, "period": {"type": "integer", "minimum": 1},
+        "method": {"type": "string"}, "value": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "activation": {
+      "type": "object",
+      "required": ["condition", "reference_price_method", "atr_config", "expiry_time"],
+      "properties": {
+        "condition": {"type": "object", "minProperties": 1},
+        "reference_price_method": {"const": "ACTIVATION_BAR_CLOSE_MID"},
+        "atr_config": {
+          "type": "object", "required": ["timeframe", "period", "method"],
+          "properties": {"timeframe": {"type": "string"}, "period": {"type": "integer", "minimum": 1}, "method": {"type": "string"}},
+          "additionalProperties": false
+        },
+        "expiry_time": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"decision_subtype": {"const": "CONDITIONAL_DIRECTIONAL"}}, "required": ["decision_subtype"]},
+      "then": {"required": ["activation"]}
+    },
+    {
+      "if": {"properties": {"decision_subtype": {"const": "UNCONDITIONAL_DIRECTIONAL"}}, "required": ["decision_subtype"]},
+      "then": {"required": ["reference_price", "atr"]}
+    }
+  ],
+  "additionalProperties": true
+}

@@ -10,14 +10,17 @@
     "payload", "previous_event_hash", "event_hash"
   ],
   "properties": {
-    "schema_version": {"const": "ANALYSIS_REGISTRY_EVENT_V0_1"},
+    "schema_version": {"enum": ["ANALYSIS_REGISTRY_EVENT_V0_1", "ANALYSIS_REGISTRY_EVENT_V0_2"]},
     "event_id": {"type": "string", "minLength": 1},
     "event_type": {
       "enum": [
         "ANALYSIS_RECORDED", "VIEW_RECORDED", "DECISION_RECORDED",
         "CANDIDATE_STATUS_CHANGED", "OUTCOME_LABEL_PENDING",
         "MANUAL_TRADE_RECORDED", "CORRECTION_APPENDED",
-        "SUPERSESSION_APPENDED"
+        "SUPERSESSION_APPENDED", "DECISION_FROZEN",
+        "EVALUATION_JOB_SCHEDULED", "DECISION_ACTIVATED",
+        "FOLLOWUP_EVIDENCE_RECORDED", "MODEL_OUTCOME_RECORDED",
+        "REPORT_PUBLISHED"
       ]
     },
     "event_time": {"type": "string", "minLength": 1},
@@ -28,5 +31,22 @@
     "payload": {"type": "object"},
     "previous_event_hash": {"type": ["string", "null"]},
     "event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "ANALYSIS_REGISTRY_EVENT_V0_1"}}},
+      "then": {"properties": {"event_type": {"enum": [
+        "ANALYSIS_RECORDED", "VIEW_RECORDED", "DECISION_RECORDED",
+        "CANDIDATE_STATUS_CHANGED", "OUTCOME_LABEL_PENDING",
+        "MANUAL_TRADE_RECORDED", "CORRECTION_APPENDED", "SUPERSESSION_APPENDED"
+      ]}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "ANALYSIS_REGISTRY_EVENT_V0_2"}}},
+      "then": {"properties": {"event_type": {"enum": [
+        "DECISION_FROZEN", "EVALUATION_JOB_SCHEDULED", "DECISION_ACTIVATED",
+        "FOLLOWUP_EVIDENCE_RECORDED", "MODEL_OUTCOME_RECORDED", "REPORT_PUBLISHED"
+      ]}}}
+    }
+  ]
 }
