@@ -106,3 +106,23 @@ def test_conditional_setup_contract_rejects_unknown_strictness() -> None:
     errors = validate_phase2_payload("DECISION_FROZEN", payload)
 
     assert any("strictness" in error for error in errors)
+
+
+def test_legacy_non_scorable_zenith_setup_remains_schema_compatible() -> None:
+    payload = conditional_setup()
+    payload.update({
+        "system": "ZENITH",
+        "decision_subtype": "SINGLE_TARGET_SETUP",
+        "quality": {**payload["quality"], "scorable_status": "NON_SCORABLE"},
+        "setup_geometry": {
+            "side": "BUY",
+            "entry": None,
+            "stop": {"basis": "ZONE", "price": 4099.066},
+            "scoring_target": None,
+            "expiry_time": None,
+        },
+    })
+    for field in ("activation", "strictness", "generation_id", "geometry_provenance"):
+        payload.pop(field)
+
+    assert validate_phase2_payload("DECISION_FROZEN", payload) == []
