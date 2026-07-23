@@ -9,7 +9,7 @@
     "decision_id": {"type": "string", "minLength": 1},
     "horizon": {"type": "string", "minLength": 1},
     "labeling_policy_version": {"type": "string", "minLength": 1},
-    "state": {"enum": ["PENDING", "DUE", "EVIDENCE_COLLECTED", "LABELED", "INVALID_INPUT", "INSUFFICIENT_EVIDENCE", "EXPIRED_UNTRIGGERED", "INVALIDATED_BEFORE_ACTIVATION"]},
+    "state": {"enum": ["WAITING_ACTIVATION", "PENDING", "DUE", "EVIDENCE_COLLECTED", "LABELED", "INVALID_INPUT", "INSUFFICIENT_EVIDENCE", "EXPIRED_UNTRIGGERED", "INVALIDATED_BEFORE_ACTIVATION"]},
     "due_at": {"type": "string", "format": "date-time"},
     "terminal_reason": {"type": ["string", "null"]},
     "safety": {

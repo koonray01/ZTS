@@ -20,6 +20,14 @@ Choose one primary route per user intent:
 
 Domain skills may be consulted but must not restart orchestration, capture another snapshot, or duplicate Registry writes. Applicable current analysis records automatically; the user need not request registration.
 
+## Four-tier conditional setups
+
+- Route Scalping, Daytrade, both-horizon, and low-strictness requests through `ctl-market-analysis-registry`.
+- Use one fresh snapshot and one Registry registration to produce the four-tier matrix: `EXPLORATORY`, `VERY_RELAXED`, `RELAXED`, and `NORMAL`, across Scalping/Daytrade and BUY/SELL.
+- Classify generated rows as `CONDITIONAL_WATCH_SETUP` / `CONDITIONAL_SETUP`; they remain waiting for activation and never become Zenith Candidates.
+- Freeze entry, stop, target, activation, expiry, strictness, generation, semantic opportunity, and provenance before follow-up evidence. Never reconstruct geometry retrospectively.
+- Report raw variants by strictness, but deduplicate headline results by prediction family, semantic opportunity, and generation.
+
 ## Canonical live history
 
 - Invoke `D:\MyWork\AlgoTrade\OS\Zenith Trading System\tools\run_zenith_analysis.ps1` for Registry-producing live analysis.

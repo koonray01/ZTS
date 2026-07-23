@@ -50,6 +50,24 @@ def _conditional(*, horizon: str = "PT1H", activation_level: float = 4061.0) -> 
     }
 
 
+def _conditional_setup() -> dict:
+    decision = _conditional(horizon="PT30M", activation_level=4050.0)
+    decision["decision_subtype"] = "CONDITIONAL_SETUP"
+    decision["labeling_policy_version"] = "CONDITIONAL_SINGLE_TARGET_V1"
+    decision["setup_geometry"] = {
+        "side": "SELL",
+        "entry": 4050.0,
+        "stop": 4058.0,
+        "scoring_target": 4040.0,
+        "expiry_time": "2026-07-22T12:30:00Z",
+    }
+    decision["strictness"] = "EXPLORATORY"
+    decision["generation_id"] = "GENERATION_1"
+    decision["semantic_opportunity_id"] = "OPPORTUNITY_1"
+    decision["activation"]["condition"]["event_type"] = "CLOSED_BELOW"
+    return decision
+
+
 def _bar(*, close_time: str, close: float, atr: float = 3.5, bar_id: str = "BAR_1") -> dict:
     return {
         "bar_id": bar_id, "timeframe": "M5",
@@ -76,6 +94,14 @@ def test_conditional_job_waits_for_activation() -> None:
     assert job["due_at"] == "2026-07-22T12:00:00Z"
 
 
+def test_conditional_setup_job_waits_for_activation() -> None:
+    job = schedule_jobs(_conditional_setup())[0]
+
+    assert job["state"] == "WAITING_ACTIVATION"
+    assert job["evaluation_start"] is None
+    assert job["due_at"] == "2026-07-22T12:00:00Z"
+
+
 def test_conditional_job_clock_starts_at_activation_close() -> None:
     activation = activate_conditional(
         _conditional(),
@@ -87,6 +113,21 @@ def test_conditional_job_clock_starts_at_activation_close() -> None:
     assert activation["evaluation_reference_price_method"] == "ACTIVATION_BAR_CLOSE_MID"
     assert activation["evaluation_reference_price"] == 4062.0
     assert activation["evaluation_atr"] == 3.5
+
+
+def test_setup_activation_preserves_geometry() -> None:
+    decision = _conditional_setup()
+
+    activation = activate_conditional(
+        decision,
+        [_bar(close_time="2026-07-22T10:05:00Z", close=4049.0)],
+    )
+
+    assert activation["state"] == "ACTIVATED"
+    assert activation["setup_geometry"] == decision["setup_geometry"]
+    assert activation["strictness"] == "EXPLORATORY"
+    assert activation["generation_id"] == "GENERATION_1"
+    assert activation["semantic_opportunity_id"] == "OPPORTUNITY_1"
 
 
 def test_open_or_wrong_timeframe_bar_cannot_activate() -> None:

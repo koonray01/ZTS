@@ -104,6 +104,25 @@
         "expiry_time": {"type": "string", "format": "date-time"}
       },
       "additionalProperties": false
+    },
+    "strictness": {
+      "enum": ["EXPLORATORY", "VERY_RELAXED", "RELAXED", "NORMAL"]
+    },
+    "generation_id": {"type": "string", "minLength": 1},
+    "setup_geometry": {
+      "type": "object"
+    },
+    "geometry_provenance": {
+      "type": "object",
+      "required": ["zone_id", "zone_lower", "zone_upper", "buffer_method", "policy_version"],
+      "properties": {
+        "zone_id": {"type": "string", "minLength": 1},
+        "zone_lower": {"type": "number"},
+        "zone_upper": {"type": "number"},
+        "buffer_method": {"type": "string", "minLength": 1},
+        "policy_version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
     }
   },
   "allOf": [
@@ -114,6 +133,26 @@
     {
       "if": {"properties": {"decision_subtype": {"const": "UNCONDITIONAL_DIRECTIONAL"}}, "required": ["decision_subtype"]},
       "then": {"required": ["reference_price", "atr"]}
+    },
+    {
+      "if": {"properties": {"decision_subtype": {"const": "CONDITIONAL_SETUP"}}, "required": ["decision_subtype"]},
+      "then": {
+        "required": ["activation", "setup_geometry", "strictness", "generation_id", "geometry_provenance"],
+        "properties": {
+          "setup_geometry": {
+            "type": "object",
+            "required": ["side", "entry", "stop", "scoring_target", "expiry_time"],
+            "properties": {
+              "side": {"enum": ["BUY", "SELL"]},
+              "entry": {"type": "number"},
+              "stop": {"type": "number"},
+              "scoring_target": {"type": "number"},
+              "expiry_time": {"type": "string", "format": "date-time"}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
     }
   ],
   "additionalProperties": true

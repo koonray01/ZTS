@@ -8,7 +8,26 @@
     "cohort_filter": {"type": "object"},
     "directional": {"type": "object"},
     "scenario": {"type": "object"},
-    "setup": {"type": "object"},
+    "setup": {
+      "type": "object",
+      "required": [
+        "raw_variant_count", "unique_opportunity_count", "triggered_count",
+        "headline_status", "expectancy_r", "representatives", "cohorts",
+        "strictness_cohorts", "variant_cohorts"
+      ],
+      "properties": {
+        "raw_variant_count": {"type": "integer", "minimum": 0},
+        "unique_opportunity_count": {"type": "integer", "minimum": 0},
+        "triggered_count": {"type": "integer", "minimum": 0},
+        "headline_status": {"enum": ["INSUFFICIENT_EVIDENCE", "DESCRIPTIVE_ONLY"]},
+        "expectancy_r": {"type": ["number", "null"]},
+        "representatives": {"type": "array", "items": {"type": "object"}},
+        "cohorts": {"type": "object"},
+        "strictness_cohorts": {"type": "object"},
+        "variant_cohorts": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
     "abstention": {"type": "object"},
     "claims": {
       "type": "object",

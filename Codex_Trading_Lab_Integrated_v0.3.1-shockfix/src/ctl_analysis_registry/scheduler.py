@@ -13,6 +13,7 @@ from .identity import stable_id
 
 
 _DURATION = re.compile(r"^(?:PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?|P(?P<days>\d+)D)$")
+CONDITIONAL_SUBTYPES = {"CONDITIONAL_DIRECTIONAL", "CONDITIONAL_SETUP"}
 
 
 def _parse_time(value: str) -> datetime:
@@ -40,7 +41,7 @@ def parse_duration(value: str) -> timedelta:
 def schedule_jobs(decision: dict[str, Any]) -> list[dict[str, Any]]:
     decision_id = str(decision["decision_id"])
     policy = str(decision["labeling_policy_version"])
-    conditional = decision.get("decision_subtype") == "CONDITIONAL_DIRECTIONAL"
+    conditional = decision.get("decision_subtype") in CONDITIONAL_SUBTYPES
     if conditional:
         activation = decision.get("activation")
         if not isinstance(activation, dict) or not activation.get("expiry_time"):
@@ -137,7 +138,7 @@ def activate_conditional(
             str(horizon): _iso(close_time + parse_duration(str(horizon)))
             for horizon in decision.get("horizons", [])
         }
-        return {
+        result = {
             "activation_id": stable_id("DECISION_ACTIVATION", decision["decision_id"], bar.get("bar_id"), _iso(close_time)),
             "decision_id": decision["decision_id"], "state": "ACTIVATED",
             "evaluation_start": _iso(close_time), "evaluation_deadlines": deadlines,
@@ -148,6 +149,15 @@ def activate_conditional(
             "source": "LIVE_MT5", "classification": None,
             "safety": deepcopy(decision.get("safety", {})),
         }
+        if decision.get("decision_subtype") == "CONDITIONAL_SETUP":
+            for field in (
+                "setup_geometry",
+                "strictness",
+                "generation_id",
+                "semantic_opportunity_id",
+            ):
+                result[field] = deepcopy(decision.get(field))
+        return result
     if observed_after_expiry:
         return {
             "decision_id": decision["decision_id"], "state": "EXPIRED_UNTRIGGERED",
@@ -171,6 +181,23 @@ def due_jobs(
         WHERE state IN ('PENDING', 'DUE', 'RETRY_PENDING') AND due_at <= ?
         ORDER BY due_at, job_id LIMIT ?""",
         (_iso(now), limit),
+    ).fetchall()
+    return [json.loads(row[0]) for row in rows]
+
+
+def waiting_activation_jobs(
+    connection: sqlite3.Connection,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit < 0:
+        raise ValueError("limit cannot be negative")
+    if limit == 0:
+        return []
+    rows = connection.execute(
+        """SELECT payload_json FROM evaluation_jobs
+        WHERE state='WAITING_ACTIVATION'
+        ORDER BY due_at, job_id LIMIT ?""",
+        (limit,),
     ).fetchall()
     return [json.loads(row[0]) for row in rows]
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import argparse, json, sys
+import argparse, io, json, sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Sequence
@@ -11,6 +12,7 @@ from ctl_mt5_snapshot.utils import sanitize_id
 from ctl_analysis_registry.identity import stable_id
 from ctl_analysis_registry.integration import register_analysis_and_catchup
 from ctl_analysis_registry.paths import DEFAULT_WORKSPACE_CONFIG, RegistryPathError, load_registry_paths
+from ctl_analysis_registry.setup_matrix import build_four_tier_setup_envelope, setup_matrix_summary
 
 def _candidate_delta(previous: dict | None, current: dict) -> dict:
     current_items = current.get("entry_packet", {}).get("candidates", [])
@@ -51,6 +53,7 @@ def main(argv: Sequence[str] | None = None)->int:
     p.add_argument("--symbol",default="XAUUSD"); p.add_argument("--bars",type=int,default=60); p.add_argument("--output",required=True); p.add_argument("--no-h4",action="store_true"); p.add_argument("--previous-decision",type=Path)
     p.add_argument("--registry-ledger",type=Path); p.add_argument("--registry-sqlite",type=Path); p.add_argument("--registry-evidence",type=Path); p.add_argument("--catchup-max-jobs",type=int,default=25)
     p.add_argument("--registry-config",type=Path,default=DEFAULT_WORKSPACE_CONFIG); p.add_argument("--registry-root",type=Path)
+    p.add_argument("--four-tier-setups",action="store_true",help="Build and register the 16-variant conditional watch setup matrix.")
     a=p.parse_args(argv)
     try:
         paths=load_registry_paths(a.registry_config,registry_root=a.registry_root)
@@ -67,13 +70,35 @@ def main(argv: Sequence[str] | None = None)->int:
     decision=run_decision_core(snap); (out/"decision_state.json").write_text(json.dumps(decision,indent=2),encoding="utf-8")
     previous = json.loads(a.previous_decision.read_text(encoding="utf-8")) if a.previous_decision else None
     delta = _candidate_delta(previous, decision); (out/"candidate_delta.json").write_text(json.dumps(delta,indent=2),encoding="utf-8")
+    chat_envelope = build_four_tier_setup_envelope(snap, decision) if a.four_tier_setups else None
+    setup_summary = setup_matrix_summary(chat_envelope) if chat_envelope is not None else {}
+    if chat_envelope is not None:
+        (out/"conditional_setups.json").write_text(
+            json.dumps(chat_envelope,indent=2,sort_keys=True),encoding="utf-8"
+        )
     registry=register_analysis_and_catchup(
         decision_state=decision,snapshot=snap,analysis_id=stable_id("ANALYSIS",snap["snapshot_id"],decision.get("generated_at") or snap.get("capture_time")),
         ledger_path=paths.ledger,sqlite_path=paths.sqlite,
         evidence_root=paths.evidence,adapter=adapter,now=now,max_jobs=a.catchup_max_jobs,paths=paths,
+        chat_envelope=chat_envelope,
     )
-    print(json.dumps({"snapshot_id":snap["snapshot_id"],"source":snap.get("source"),"freshness":snap.get("freshness",{}).get("status"),"qc":snap.get("qc",{}).get("decision"),"candidate_count":len(decision.get("entry_packet",{}).get("candidates",[])),"candidate_delta":delta,**paths.metadata(),**registry,"trade_write_enabled":False,"auto_execution_enabled":False}))
+    setup_status = ({
+        "setup_class": setup_summary["setup_class"],
+        "setup_generation_id": setup_summary["generation_id"],
+        "setup_variant_count": setup_summary["variant_count"],
+        "scorable_setup_count": setup_summary["scorable_count"],
+        "non_scorable_setup_count": setup_summary["non_scorable_count"],
+    } if setup_summary else {})
+    print(json.dumps({"snapshot_id":snap["snapshot_id"],"source":snap.get("source"),"freshness":snap.get("freshness",{}).get("status"),"qc":snap.get("qc",{}).get("decision"),"candidate_count":len(decision.get("entry_packet",{}).get("candidates",[])),"candidate_delta":delta,**setup_status,**paths.metadata(),**registry,"trade_write_enabled":False,"auto_execution_enabled":False,"order_actions":0,"permission_leakage":0}))
     return 0 if snap.get("source")=="LIVE_MT5" and snap.get("qc",{}).get("decision")=="PASS" else 2
+
+def main_for_test(argv: Sequence[str]) -> dict:
+    output = io.StringIO()
+    with redirect_stdout(output):
+        code = main(argv)
+    if code not in {0, 2}:
+        raise RuntimeError(f"market analysis CLI returned {code}")
+    return json.loads(output.getvalue())
 if __name__=="__main__":
     try: raise SystemExit(main())
     except SnapshotUnavailable as e: print(json.dumps({"status":"REAL_MT5_UNAVAILABLE","message":str(e),"trade_write_enabled":False}),file=sys.stderr); raise SystemExit(3)

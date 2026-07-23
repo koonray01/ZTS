@@ -105,6 +105,16 @@ def _classification_cohorts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _setup_count_cohorts(
+    rows: list[dict[str, Any]],
+    key_builder: Any,
+) -> dict[str, dict[str, int]]:
+    grouped: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        grouped[key_builder(row)][str(row.get("classification") or "UNKNOWN").lower()] += 1
+    return {key: dict(sorted(counts.items())) for key, counts in sorted(grouped.items())}
+
+
 def build_performance_report(
     connection: sqlite3.Connection,
     cohort_filter: dict[str, Any],
@@ -128,10 +138,22 @@ def build_performance_report(
             "classifications": dict(sorted(Counter(str(item.get("classification")) for item in items).items())),
         }
     setup_rows = [row for row in rows if row.get("decision_type") == "SETUP"]
-    grouped_setup: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    grouped_setup: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in setup_rows:
-        grouped_setup[str(row.get("semantic_opportunity_id") or row.get("decision_id"))].append(row)
-    priority = {"FULL": 0, "CONTINUATION": 1, "EARLY": 2}
+        grouped_setup[(
+            str(row.get("prediction_family_id") or row.get("system") or ""),
+            str(row.get("semantic_opportunity_id") or row.get("decision_id") or ""),
+            str(row.get("generation_id") or ""),
+        )].append(row)
+    priority = {
+        "FULL": 0,
+        "NORMAL": 0,
+        "CONTINUATION": 1,
+        "RELAXED": 1,
+        "EARLY": 2,
+        "VERY_RELAXED": 2,
+        "EXPLORATORY": 3,
+    }
     representatives = [
         min(items, key=lambda item: (priority.get(str(item.get("variant_id")), 99), str(item.get("variant_id") or ""), str(item.get("decision_id") or "")))
         for _, items in sorted(grouped_setup.items())
@@ -146,6 +168,19 @@ def build_performance_report(
         "expectancy_r": round(sum(realized) / len(realized), 6) if len(triggered) >= 30 and realized else None,
         "representatives": representatives,
         "cohorts": _classification_cohorts(representatives),
+        "strictness_cohorts": _setup_count_cohorts(
+            setup_rows, lambda row: str(row.get("strictness") or row.get("variant_id") or "UNSPECIFIED")
+        ),
+        "variant_cohorts": _setup_count_cohorts(
+            setup_rows,
+            lambda row: "|".join((
+                str(row.get("system") or ""),
+                str(row.get("setup_horizon") or row.get("horizon") or ""),
+                str(row.get("strictness") or row.get("variant_id") or "UNSPECIFIED"),
+                str(row.get("side") or ""),
+                str((row.get("market_context") or {}).get("regime") or "UNKNOWN"),
+            )),
+        ),
     }
     return {
         "schema_version": "ANALYSIS_PERFORMANCE_REPORT_V0_1",
