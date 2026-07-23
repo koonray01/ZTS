@@ -10,3 +10,11 @@
 8. Promotion thresholds are governance scaffolding, not statistical proof.
 9. No broker order capability exists; this is intentional.
 10. The repository is not approved for execution scale-up.
+11. Outcome attribution is not implemented. Add an append-only `AI_ATTRIBUTION`
+    layer that explains wins, losses, non-entry, false breaks, missing
+    follow-through, location quality, and regime shifts using evidence
+    references. Keep every attribution labeled as AI interpretation or
+    hypothesis; it must not alter frozen geometry, mechanical outcomes,
+    policy, or execution permission. After at least 20–30 triggered simulated
+    outcomes, review recurring categories and implement only the stable,
+    objectively definable ones as deterministic Python metrics.
