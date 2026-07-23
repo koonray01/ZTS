@@ -22,6 +22,12 @@ BUNDLE_SCHEMA = ROOT / "schemas" / "analysis_registry_bundle.schema.json"
 SOURCE_CLASSES = {"LIVE_MT5", "REPLAY", "SYNTHETIC", "CHAT_ONLY"}
 INTEGRITY_TIERS = {"VERIFIED", "PARTIAL", "CHAT_ONLY", "UNMATCHED"}
 VALID_ACTIONS = {"SETUP", "WATCH", "WAIT", "HOLD", "REJECT", "ABSTAIN"}
+STRICTNESS_RR_FLOORS = {
+    "EXPLORATORY": 0.50,
+    "VERY_RELAXED": 0.75,
+    "RELAXED": 1.00,
+    "NORMAL": 1.50,
+}
 MATERIAL_REVISION_FIELDS = {
     "direction", "activation", "reference_price", "atr", "horizons", "rules",
     "labeling_policy_version", "setup_geometry",
@@ -131,6 +137,37 @@ def _freeze_claim(
         for field in ("entry", "stop", "scoring_target", "expiry_time"):
             if claim.get(field) is None:
                 missing.append(f"MISSING_{field.upper()}")
+        side = str(claim.get("side") or "").upper()
+        entry, stop, target = claim.get("entry"), claim.get("stop"), claim.get("scoring_target")
+        if side not in {"BUY", "SELL"}:
+            missing.append("INVALID_SETUP_SIDE")
+        elif all(isinstance(value, (int, float)) for value in (entry, stop, target)):
+            side_correct = (
+                float(stop) < float(entry) < float(target)
+                if side == "BUY"
+                else float(target) < float(entry) < float(stop)
+            )
+            if not side_correct:
+                missing.append("INVALID_SIDE_GEOMETRY")
+            else:
+                risk = abs(float(entry) - float(stop))
+                reward = abs(float(target) - float(entry))
+                strictness = str(claim.get("strictness") or "")
+                floor = STRICTNESS_RR_FLOORS.get(strictness)
+                if subtype == "CONDITIONAL_SETUP" and floor is None:
+                    missing.append("INVALID_STRICTNESS")
+                elif floor is not None and (risk <= 0 or reward / risk < floor):
+                    missing.append("RR_BELOW_STRICTNESS_FLOOR")
+        if subtype == "CONDITIONAL_SETUP":
+            for field in (
+                "activation",
+                "activation_policy",
+                "strictness",
+                "generation_id",
+                "geometry_provenance",
+            ):
+                if claim.get(field) is None:
+                    missing.append(f"MISSING_{field.upper()}")
         rules = {
             "success": "SCORING_TARGET_FIRST", "failure": "STOP_FIRST",
             "invalidation": claim.get("invalidation") or "INVALID_INPUT",
@@ -175,6 +212,17 @@ def _freeze_claim(
             "scoring_target": claim.get("scoring_target"),
             "expiry_time": claim.get("expiry_time"),
         }
+        if subtype == "CONDITIONAL_SETUP":
+            for field in (
+                "activation",
+                "activation_policy",
+                "strictness",
+                "generation_id",
+                "geometry_provenance",
+                "setup_horizon",
+            ):
+                if claim.get(field) is not None:
+                    frozen[field] = deepcopy(claim[field])
     return frozen
 
 

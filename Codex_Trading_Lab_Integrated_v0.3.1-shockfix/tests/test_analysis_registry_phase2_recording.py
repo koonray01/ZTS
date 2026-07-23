@@ -63,6 +63,58 @@ def _chat_envelope() -> dict:
     }
 
 
+def _conditional_setup_envelope() -> dict:
+    envelope = _chat_envelope()
+    envelope["generation_id"] = "GENERATION_1"
+    envelope["claims"] = [
+        {
+            "claim_id": "SETUP_CLAIM_1",
+            "decision_type": "SETUP",
+            "decision_subtype": "CONDITIONAL_SETUP",
+            "direction": "BEARISH",
+            "action": "SETUP",
+            "role": "PRIMARY",
+            "semantic_opportunity_id": "OPPORTUNITY_SCALPING_SELL_1",
+            "variant_id": "EXPLORATORY",
+            "strictness": "EXPLORATORY",
+            "generation_id": "GENERATION_1",
+            "setup_horizon": "SCALPING",
+            "side": "SELL",
+            "entry": 4018.0,
+            "stop": 4020.0,
+            "scoring_target": 4016.0,
+            "expiry_time": "2026-07-22T10:00:00+00:00",
+            "horizons": ["PT30M"],
+            "timeframe_scope": ["M5", "M15"],
+            "labeling_policy_version": "CONDITIONAL_SINGLE_TARGET_V1",
+            "activation": {
+                "condition": {
+                    "event_type": "CLOSED_BELOW",
+                    "timeframe": "M5",
+                    "price_field": "MID_CLOSE",
+                    "level": 4018.0,
+                },
+                "reference_price_method": "ACTIVATION_BAR_CLOSE_MID",
+                "atr_config": {"timeframe": "M5", "period": 14, "method": "WILDER"},
+                "expiry_time": "2026-07-22T09:30:00+00:00",
+            },
+            "activation_policy": {
+                "version": "FOUR_TIER_ACTIVATION_V1",
+                "required_events": 1,
+                "strictness_rank": 0,
+            },
+            "geometry_provenance": {
+                "zone_id": "ZONE_M5_SUPPLY_1",
+                "zone_lower": 4017.5,
+                "zone_upper": 4019.0,
+                "buffer_method": "SPREAD_PLUS_ZONE_FRACTION",
+                "policy_version": "FOUR_TIER_GEOMETRY_V1",
+            },
+        }
+    ]
+    return envelope
+
+
 def test_zenith_and_chat_model_have_separate_system_ids() -> None:
     zenith = freeze_zenith_decisions(_decision_state(), _snapshot(), "ANALYSIS_1")
     chat = freeze_chat_model_view(_chat_envelope(), _snapshot())
@@ -111,6 +163,28 @@ def test_measurable_zenith_candidate_freezes_single_target_setup() -> None:
     assert setup["semantic_opportunity_id"] == "OPPORTUNITY_1"
     assert setup["setup_geometry"]["scoring_target"] == 4026.0
     assert setup["quality"]["scorable_status"] == "SCORABLE"
+
+
+def test_chat_conditional_setup_retains_tracking_contract() -> None:
+    setup = freeze_chat_model_view(_conditional_setup_envelope(), _snapshot())[0]
+
+    assert setup["decision_subtype"] == "CONDITIONAL_SETUP"
+    assert setup["strictness"] == "EXPLORATORY"
+    assert setup["generation_id"] == "GENERATION_1"
+    assert setup["activation"]["condition"]["timeframe"] == "M5"
+    assert setup["activation_policy"]["required_events"] == 1
+    assert setup["geometry_provenance"]["policy_version"] == "FOUR_TIER_GEOMETRY_V1"
+    assert setup["quality"]["scorable_status"] == "SCORABLE"
+
+
+def test_chat_conditional_setup_rejects_wrong_side_geometry() -> None:
+    envelope = _conditional_setup_envelope()
+    envelope["claims"][0]["stop"] = 4017.0
+
+    setup = freeze_chat_model_view(envelope, _snapshot())[0]
+
+    assert setup["quality"]["scorable_status"] == "NON_SCORABLE"
+    assert "INVALID_SIDE_GEOMETRY" in setup["non_scorable_reasons"]
 
 
 def test_chat_model_snapshot_binding_is_required() -> None:
