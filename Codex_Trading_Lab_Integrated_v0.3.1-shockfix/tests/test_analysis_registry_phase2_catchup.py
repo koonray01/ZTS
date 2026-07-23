@@ -163,6 +163,10 @@ class _Adapter:
         self.close = close
 
     def closed_bars_between(self, symbol, timeframe, start, end):
+        assert isinstance(start, datetime)
+        assert isinstance(end, datetime)
+        assert start.tzinfo is not None
+        assert end.tzinfo is not None
         return [
             {"bar_id": "B1", "timeframe": "M5", "open_time": "2026-07-22T09:05:00Z", "close_time": "2026-07-22T09:10:00Z", "open": 100.0, "high": max(100.2, self.close), "low": min(99.9, self.close), "close": self.close, "spread_points": 10, "is_closed": True},
             {"bar_id": "B2", "timeframe": "M5", "open_time": "2026-07-22T09:10:00Z", "close_time": "2026-07-22T09:15:00Z", "open": 100.1, "high": 100.4, "low": 100.0, "close": 100.3, "spread_points": 10, "is_closed": True},

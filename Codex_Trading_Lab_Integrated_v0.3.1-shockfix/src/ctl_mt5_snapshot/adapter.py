@@ -217,7 +217,11 @@ class MetaTrader5SnapshotAdapter(SnapshotAdapter):
                         "close": float(self._row_value(row, "close")),
                         "tick_volume": int(self._row_value(row, "tick_volume", 0) or 0),
                         "real_volume": int(self._row_value(row, "real_volume", 0) or 0),
-                        "spread_points": self._row_value(row, "spread"),
+                        "spread_points": (
+                            int(self._row_value(row, "spread"))
+                            if self._row_value(row, "spread") is not None
+                            else None
+                        ),
                         "is_closed": True, "source": "LIVE_MT5",
                         "broker_utc_offset_minutes": int(broker_offset.total_seconds() // 60),
                     }

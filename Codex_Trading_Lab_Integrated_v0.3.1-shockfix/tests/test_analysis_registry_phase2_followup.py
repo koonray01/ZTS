@@ -158,7 +158,11 @@ class _FakeMT5:
 
     def copy_rates_range(self, symbol, timeframe, start, end):
         self.calls.append(("copy_rates_range", symbol, timeframe, start, end))
-        return [{"time": 1784707200, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.5, "tick_volume": 10, "real_volume": 1, "spread": 10}]
+        class NonJsonInteger:
+            def __int__(self):
+                return 10
+
+        return [{"time": 1784707200, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.5, "tick_volume": 10, "real_volume": 1, "spread": NonJsonInteger()}]
 
     def copy_ticks_range(self, symbol, start, end, flags):
         self.calls.append(("copy_ticks_range", symbol, start, end, flags))
@@ -179,6 +183,8 @@ def test_mt5_history_methods_are_read_only_and_normalized() -> None:
 
     assert bars[0]["timeframe"] == "M5"
     assert bars[0]["is_closed"] is True
+    assert bars[0]["spread_points"] == 10
+    json.dumps(bars)
     assert ticks[0]["bid"] == 100.0 and ticks[0]["ask"] == 100.1
     assert any(isinstance(call, tuple) and call[0] == "copy_rates_range" for call in mt5.calls)
     assert any(isinstance(call, tuple) and call[0] == "copy_ticks_range" for call in mt5.calls)

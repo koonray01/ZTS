@@ -37,6 +37,11 @@ def _iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 def _append_typed(
     ledger: AppendOnlyLedger,
     event_type: str,
@@ -146,8 +151,8 @@ def _activation_bars(
     raw_bars = adapter.closed_bars_between(
         decision["symbol"],
         condition["timeframe"],
-        decision["decision_time"],
-        min(_iso(now), str(activation["expiry_time"])),
+        _time(str(decision["decision_time"])),
+        min(now, _time(str(activation["expiry_time"]))),
     )
     normalized: list[dict[str, Any]] = []
     for bar in raw_bars:
