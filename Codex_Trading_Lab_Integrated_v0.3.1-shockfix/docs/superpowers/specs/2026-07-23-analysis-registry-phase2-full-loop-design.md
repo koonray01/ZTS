@@ -88,6 +88,24 @@ Directional decision from a Primary Scenario, action-plan prose, Candidate, or
 Chat narrative. If the collection is absent or empty, no Zenith Directional
 decision or job is created.
 
+The deterministic engine, not the normalizer, owns claim emission under
+`DIRECTIONAL_CLAIM_EMISSION_V1`. A claim may be emitted only from a finalized
+binary engine state (`BULLISH` or `BEARISH`) with a frozen evaluation
+timeframe, decision-time reference price, ATR value and ATR timeframe,
+profile, horizons, and source binding. Neutral, mixed, pending, or
+insufficient-data states emit no claim; they are coverage observations, not
+predictions. Conditional claims are permitted only when the engine emits the
+complete numeric activation contract before the outcome.
+
+Claim identity is
+`system | symbol | profile | evaluation_timeframe | claim_family_id |
+direction | emission_policy_version`. `claim_family_id` is emitted by the
+engine and remains stable for the same thesis across sessions. An identical
+pre-activation claim is `unchanged`; a material change to direction,
+activation, reference, ATR policy, timeframe, horizon policy, or source thesis
+creates a new decision linked as a revision. Once evaluation has started, a
+later claim is always a new decision and cannot alter the original score.
+
 ### Scenario
 
 Requires:
@@ -138,12 +156,25 @@ conservative scoring entry before the outcome:
 
 - BUY scoring entry is the range upper bound;
 - SELL scoring entry is the range lower bound;
-- BUY activation/touch uses ask; SELL activation/touch uses bid;
 - evaluation begins only after the frozen Candidate trigger/activation is
   satisfied;
-- a quote that skips completely beyond the range before an executable touch is
-  `GAP_THROUGH_UNRESOLVED`, not an entry at a reconstructed price;
-- partial contact with the conservative bound counts as a touch;
+- after activation, BUY enters only on a recorded quote satisfying
+  `entry_lower <= ask <= entry_upper`;
+- after activation, SELL enters only on a recorded quote satisfying
+  `entry_lower <= bid <= entry_upper`;
+- after activation, consecutive BUY observations where the earlier ask is
+  above `entry_upper` and the later ask is below `entry_lower`, with no
+  intervening recorded ask inside the range, are
+  `GAP_THROUGH_UNRESOLVED`;
+- after activation, consecutive SELL observations where the earlier bid is
+  below `entry_lower` and the later bid is above `entry_upper`, with no
+  intervening recorded bid inside the range, are
+  `GAP_THROUGH_UNRESOLVED`;
+- movement beyond the favorable side before activation never counts as an
+  entry or a gap-through;
+- contact with either inclusive range boundary after activation counts as an
+  executable range touch, while RR and realized R still use the frozen
+  conservative scoring entry;
 - midpoint, best-price, and hindsight-selected entries are prohibited.
 
 The original range, conservative scoring entry, scoring method, and trigger
@@ -152,9 +183,22 @@ entry.
 
 ### Abstention
 
-Only a rejected or withheld setup with frozen entry, stop, scoring target, and
-expiry is scorable. Generic `HOLD`, `WAIT`, and `NO_SETUP` records remain in
-the audit trail but are `NON_SCORABLE`.
+Only a deterministic Candidate that already has complete entry range, trigger,
+side, stop, exactly one scoring target, profile, source binding, and expiry may
+produce a scorable abstention control. Before any outcome is observed, the
+Candidate engine must freeze a `WAIT`, `REJECT`, or `WITHHELD` disposition and
+a machine-readable abstention reason. The paired control copies the
+Candidate's geometry, trigger, scoring-entry policy, expiry, opportunity
+identity, and source binding; it also links the source Candidate decision and
+the frozen abstention reason.
+
+Generic `HOLD`, `WAIT`, and `NO_SETUP` output without such a complete
+Candidate produces no control and remains `NON_SCORABLE`. When several
+variants belong to one opportunity, exactly one control is selected before
+outcome observation using the same representative priority as Setup reporting:
+`FULL_CONFIRMATION`, then `EARLY_CONFIRMATION`, then `CONTINUATION`, then
+lexical stable decision ID. Control creation after activation, entry, expiry,
+or any outcome evidence is prohibited.
 
 The paired frozen control produces one of:
 
@@ -185,6 +229,16 @@ Scheduling is decision-type aware:
 - Setup jobs observe from activation through frozen setup expiry; diagnostic
   horizons cannot extend the setup lifetime.
 - Abstention controls use the paired setup activation and expiry.
+
+Directional decisions have one outcome per declared horizon. Scenario
+decisions have exactly one terminal outcome per decision and policy version;
+diagnostic-horizon jobs append checkpoint evidence only and never append a
+second Scenario outcome. Confirmation, invalidation, or expiry atomically
+terminalizes the Scenario, appends its single outcome, and transitions every
+remaining checkpoint job to `CANCELLED_TERMINAL` through
+`EVALUATION_JOB_STATE_CHANGED`. A checkpoint already processed before the
+terminal event remains immutable diagnostic evidence. Stable job and outcome
+identities make reruns no-ops, so terminalization cannot duplicate outcomes.
 
 ## Source Binding
 
@@ -284,10 +338,11 @@ reason code, sanitized diagnostic, attempt count, attempted time, and next
 retry time when applicable. Projection rebuild applies these events in ledger
 order. SQLite is never the sole source of retry or terminal state.
 
-Both `EVALUATION_JOB_STATE_CHANGED` and `LEGACY_RECORD_CLASSIFIED` are
-backward-compatible additions to the Phase 2 event-type dispatch and JSON
-schemas. Existing events remain readable without migration. Unknown new event
-versions fail validation rather than being ignored.
+`EVALUATION_JOB_STATE_CHANGED`, `LEGACY_RECORD_CLASSIFIED`, and
+`NORMALIZATION_POLICY_STATE_CHANGED` are backward-compatible additions to the
+Phase 2 event-type dispatch and JSON schemas. Existing events remain readable
+without migration. Unknown new event versions fail validation rather than
+being ignored.
 
 ## Legacy Policy
 
@@ -417,6 +472,11 @@ Tests cover:
 - gap-through and partial-touch behavior;
 - exact scenario-event translation and unsupported grammar rejection;
 - explicit Directional claims without Scenario-derived double counting;
+- Directional emission-state filtering, family identity, and revision rules;
+- abstention-control eligibility, pre-outcome freezing, source linkage, and
+  deterministic representative selection;
+- single Scenario terminal outcome with checkpoint cancellation and rerun
+  idempotency;
 - replay of job-state and legacy-classification events after projection
   deletion;
 - structured Chat registration and blocked-capability behavior.
@@ -424,6 +484,43 @@ Tests cover:
 Use synthetic and replay registries for destructive tests. The canonical live
 Registry receives only an append-only migration classification after dry-run
 counts and hashes match.
+
+## Shadow Cutover and Rollback
+
+Cutover is an explicit operator action, not a side effect of analysis:
+
+1. Copy the canonical ledger and required immutable evidence to an isolated
+   replay Registry; record the source ledger head hash and event counts.
+2. Rebuild the replay projection, run legacy classification and
+   `PHASE2_NORMALIZATION_V1` in dry-run mode, and prove that dry-run writes
+   nothing to the canonical Registry.
+3. Run a shadow cohort in which V1 produces proposed decisions, jobs, reason
+   codes, and outcomes only in the isolated Registry. Compare ledger/projection
+   reconciliation, decision and job counts, stable IDs, reason-code
+   distributions, outcome hashes, safety counters, and foreground/manual
+   parity against the acceptance fixtures and current read-only baseline.
+4. Cut over only when the replay head matches the recorded source head, all
+   required comparisons pass, and the operator explicitly enables
+   `PHASE2_NORMALIZATION_V1`.
+5. After cutover, complete at least one native `LIVE_MT5` forward outcome
+   before declaring Phase 2 operationally complete.
+
+Rollback disables new V1 normalization and scheduling through the same
+versioned feature gate. It never deletes, edits, or hides decisions, jobs,
+state changes, evidence, classifications, or outcomes already appended.
+Projection rebuild remains compatible with those events, and pending V1 jobs
+remain visible for explicit manual terminalization or resumption after review.
+Re-enabling V1 with the same policy version and stable inputs is idempotent;
+semantic changes require a new policy version and a new shadow cutover.
+
+Enable and disable actions append a typed
+`NORMALIZATION_POLICY_STATE_CHANGED` event containing the policy version,
+`ENABLED` or `DISABLED`, operator-command timestamp, shadow Registry identity,
+shadow ledger head, canonical source head used by the shadow run, comparison
+summary hash, and reason. The canonical projection derives the active policy
+only from the latest valid event in ledger order; a local config flag alone
+cannot activate normalization. Repeating the same transition with the same
+policy, source head, and comparison hash appends nothing.
 
 ## Acceptance Gates
 
@@ -449,6 +546,9 @@ Phase 2 is operationally complete when:
     follow-up -> outcome with complete binding and no manual repair.
 14. Missing real Setup or Abstention opportunities remain an explicit coverage
     gap; no Candidate or control is manufactured to satisfy acceptance.
+15. Shadow mode performs zero canonical writes, cutover records its source
+    ledger head and policy version, and rollback preserves a fully rebuildable
+    append-only history.
 
 Production efficacy remains a later evidence milestone. Phase 2 completion
 means trustworthy measurement, not favorable performance.
