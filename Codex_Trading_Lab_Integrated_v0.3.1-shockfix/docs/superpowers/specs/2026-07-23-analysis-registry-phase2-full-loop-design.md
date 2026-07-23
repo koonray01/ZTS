@@ -57,9 +57,11 @@ Follow-up evidence -> Outcome label -> Reports
 ```
 
 The normalizer is the only component that translates runtime analysis objects
-into Phase 2 decision contracts. The ledger, SQLite projection, deterministic
-labelers, canonical path resolver, and writer coordination remain the existing
-authoritative mechanisms.
+into Phase 2 decision contracts. The ledger, SQLite projection, canonical path
+resolver, and writer coordination remain the existing authoritative
+mechanisms. Existing deterministic labelers remain authoritative where their
+frozen contract is unchanged; the Setup range contract and Scenario
+terminalization use the explicitly versioned additions defined below.
 
 All native decisions produced after cutover record
 `normalization_policy_version=PHASE2_NORMALIZATION_V1`. Older decisions never
@@ -106,6 +108,25 @@ activation, reference, ATR policy, timeframe, horizon policy, or source thesis
 creates a new decision linked as a revision. Once evaluation has started, a
 later claim is always a new decision and cannot alter the original score.
 
+Every native engine run also emits a deterministic
+`prediction_emission_manifest`, even when it emits no prediction. The manifest
+lists every prediction family enabled for that engine/profile, its emission
+policy version, and exactly one status:
+
+- `EMITTED`, with the resulting decision IDs;
+- `ABSTAINED_BY_POLICY`, with a machine-readable neutral, mixed, pending, or
+  insufficient-data reason;
+- `NOT_APPLICABLE`, with a machine-readable capability reason;
+- `EMISSION_FAILED`, with a sanitized diagnostic.
+
+The manifest is frozen and source-bound with the analysis in one typed
+`PREDICTION_EMISSION_RECORDED` event whose stable identity is derived from the
+analysis run ID, engine, profile, and emission-policy version. An absent
+enabled family, missing manifest, or `EMISSION_FAILED` is an integration
+failure, not an empty denominator. `ABSTAINED_BY_POLICY` and valid
+`NOT_APPLICABLE` entries remain coverage observations and do not create
+predictions.
+
 ### Scenario
 
 Requires:
@@ -150,6 +171,15 @@ Requires:
 
 Outcome uses `SINGLE_TARGET` and bid/ask-aware path evaluation. Additional
 targets are diagnostic milestones and do not create headline predictions.
+
+This range contract is evaluated by the new versioned policy
+`RANGE_ACTIVATION_SINGLE_TARGET_V2`; the existing scalar Setup labeler remains
+available only for decisions frozen under its older policy. V2 follow-up
+evidence must contain ordered timestamped bid/ask observations spanning
+activation through expiry. Bar-only evidence or observations without the
+required side of quote cannot prove an in-range executable touch and resolve
+as `AMBIGUOUS/EVIDENCE_GRANULARITY_INSUFFICIENT`, never by scalar-threshold
+fallback.
 
 Zenith Candidates currently expose an `entry_range`; Phase 2 freezes one
 conservative scoring entry before the outcome:
@@ -233,12 +263,20 @@ Scheduling is decision-type aware:
 Directional decisions have one outcome per declared horizon. Scenario
 decisions have exactly one terminal outcome per decision and policy version;
 diagnostic-horizon jobs append checkpoint evidence only and never append a
-second Scenario outcome. Confirmation, invalidation, or expiry atomically
-terminalizes the Scenario, appends its single outcome, and transitions every
-remaining checkpoint job to `CANCELLED_TERMINAL` through
-`EVALUATION_JOB_STATE_CHANGED`. A checkpoint already processed before the
-terminal event remains immutable diagnostic evidence. Stable job and outcome
-identities make reruns no-ops, so terminalization cannot duplicate outcomes.
+second Scenario outcome.
+
+Confirmation, invalidation, or expiry appends one typed
+`SCENARIO_TERMINALIZED` aggregate event. Its payload contains the complete
+terminal outcome, outcome ID, terminal evidence hash, terminal reason, and the
+stable IDs of every remaining checkpoint job with their
+`CANCELLED_TERMINAL` state. No separate `MODEL_OUTCOME_RECORDED` or
+`EVALUATION_JOB_STATE_CHANGED` event is appended for that same terminal
+operation. The projection applies the single event in one SQLite transaction,
+deriving the outcome row and all job-state rows together. After a crash, replay
+therefore sees either no terminal event or the complete aggregate; it cannot
+observe a partial terminalization. A checkpoint processed before the terminal
+event remains immutable diagnostic evidence. The stable aggregate event,
+outcome, and job IDs make reruns no-ops.
 
 ## Source Binding
 
@@ -338,11 +376,12 @@ reason code, sanitized diagnostic, attempt count, attempted time, and next
 retry time when applicable. Projection rebuild applies these events in ledger
 order. SQLite is never the sole source of retry or terminal state.
 
-`EVALUATION_JOB_STATE_CHANGED`, `LEGACY_RECORD_CLASSIFIED`, and
-`NORMALIZATION_POLICY_STATE_CHANGED` are backward-compatible additions to the
-Phase 2 event-type dispatch and JSON schemas. Existing events remain readable
-without migration. Unknown new event versions fail validation rather than
-being ignored.
+`PREDICTION_EMISSION_RECORDED`, `OPPORTUNITY_VARIANT_SET_FROZEN`,
+`EVALUATION_JOB_STATE_CHANGED`, `SCENARIO_TERMINALIZED`,
+`LEGACY_RECORD_CLASSIFIED`, and `NORMALIZATION_POLICY_STATE_CHANGED` are
+backward-compatible additions to the Phase 2 event-type dispatch and JSON
+schemas. Existing events remain readable without migration. Unknown new event
+versions fail validation rather than being ignored.
 
 ## Legacy Policy
 
@@ -385,14 +424,41 @@ Late changes are audit-only corrections and cannot change scoring.
 
 The semantic Candidate namespace is:
 
-`system | symbol | profile | timeframe | semantic_opportunity_id | side`
+`system | symbol | profile | timeframe | semantic_opportunity_id |
+opportunity_generation_id | side`
 
 `semantic_opportunity_id` must be emitted by the deterministic Candidate
 engine. Falling back to a snapshot-local `candidate_id` makes the Candidate
 non-linkable across sessions and therefore non-scorable for lifecycle metrics.
 Entry variants (`EARLY_CONFIRMATION`, `FULL_CONFIRMATION`, `CONTINUATION`) are
-separate decisions under one prediction family and one opportunity; reports
-deduplicate the opportunity before headline setup metrics.
+separate decisions under one prediction family and one opportunity generation;
+reports deduplicate variants within that generation before headline setup
+metrics.
+
+`opportunity_generation_id` is emitted by the deterministic Candidate engine
+and is the stable hash of the semantic opportunity ID, side, profile,
+timeframe, material thesis fields, and Candidate policy version. Identical
+material inputs across sessions reproduce the same generation ID; a material
+revision produces a new one. The frozen variant-set event identity includes
+this generation ID.
+
+If a new generation appears before evaluation starts, the lifecycle resolver
+terminalizes the predecessor as `SUPERSEDED_PRE_EVALUATION`; the predecessor
+is audit-visible but headline-ineligible. If evaluation has started, the
+predecessor remains immutable and the new generation is a separate
+time-stamped prediction; both are headline-eligible as distinct forward
+predictions. Reports never collapse generations by `semantic_opportunity_id`
+alone and never count more than one representative within a generation.
+
+The Candidate engine must emit the complete variant manifest for an
+opportunity generation with `variant_set_complete=true` before the normalizer
+schedules any Setup or Abstention-control job. The Registry freezes that
+manifest in an `OPPORTUNITY_VARIANT_SET_FROZEN` event and selects the
+representative from that sealed set using the fixed priority below. A variant
+that appears after sealing cannot join the generation; it creates a new
+generation linked as a material revision. Missing or incomplete manifests are
+`NON_SCORABLE/VARIANT_SET_INCOMPLETE`. This makes representative selection
+independent of session and registration arrival order.
 
 For each analysis the lifecycle resolver queries all nonterminal Candidates in
 the canonical Registry for the same namespace. Exact material fields
@@ -430,7 +496,8 @@ shown individually for diagnostics but count once per semantic opportunity
 using this frozen representative priority:
 `FULL_CONFIRMATION`, then `EARLY_CONFIRMATION`, then `CONTINUATION`, then
 lexicographically smallest stable variant ID. The selected representative is
-stored when jobs are scheduled and cannot change after outcome evidence.
+stored when the opportunity variant set is sealed and cannot change after job
+scheduling or outcome evidence.
 
 Capability, coverage, and efficacy are independent. Until forward sample sizes
 are sufficient, the headline remains `INSUFFICIENT_EVIDENCE`.
@@ -477,6 +544,15 @@ Tests cover:
   deterministic representative selection;
 - single Scenario terminal outcome with checkpoint cancellation and rerun
   idempotency;
+- aggregate Scenario terminal-event replay with crash injection before and
+  after the ledger append;
+- Setup V2 ordered bid/ask evidence, activation gating, range touch,
+  insufficient granularity, and no scalar fallback;
+- sealed opportunity variant sets presented in different arrival orders;
+- cross-generation reporting for pre-evaluation supersession and
+  post-evaluation revision;
+- policy-disabled job quarantine and explicit resume behavior;
+- emission-manifest completeness and zero-emission integration failure;
 - replay of job-state and legacy-classification events after projection
   deletion;
 - structured Chat registration and blocked-capability behavior.
@@ -490,7 +566,8 @@ counts and hashes match.
 Cutover is an explicit operator action, not a side effect of analysis:
 
 1. Copy the canonical ledger and required immutable evidence to an isolated
-   replay Registry; record the source ledger head hash and event counts.
+   replay Registry; record that immutable copy's `shadow_source_head` and event
+   counts.
 2. Rebuild the replay projection, run legacy classification and
    `PHASE2_NORMALIZATION_V1` in dry-run mode, and prove that dry-run writes
    nothing to the canonical Registry.
@@ -499,10 +576,17 @@ Cutover is an explicit operator action, not a side effect of analysis:
    reconciliation, decision and job counts, stable IDs, reason-code
    distributions, outcome hashes, safety counters, and foreground/manual
    parity against the acceptance fixtures and current read-only baseline.
-4. Cut over only when the replay head matches the recorded source head, all
-   required comparisons pass, and the operator explicitly enables
-   `PHASE2_NORMALIZATION_V1`.
-5. After cutover, complete at least one native `LIVE_MT5` forward outcome
+4. Treat the replay head after shadow writes as a separate `shadow_result_head`;
+   it is expected to differ from `shadow_source_head` and is never used as the
+   canonical concurrency check.
+5. To cut over, acquire the canonical writer lease and perform one
+   compare-and-append operation: enable only if the current canonical head
+   still equals `shadow_source_head`, then append the enable event before
+   releasing the lease. A mismatch aborts with `SHADOW_BASE_STALE` and requires
+   a new shadow run from the new canonical head.
+6. Cut over only when all required comparisons pass and the operator explicitly
+   enables `PHASE2_NORMALIZATION_V1`.
+7. After cutover, complete at least one native `LIVE_MT5` forward outcome
    before declaring Phase 2 operationally complete.
 
 Rollback disables new V1 normalization and scheduling through the same
@@ -512,6 +596,13 @@ Projection rebuild remains compatible with those events, and pending V1 jobs
 remain visible for explicit manual terminalization or resumption after review.
 Re-enabling V1 with the same policy version and stable inputs is idempotent;
 semantic changes require a new policy version and a new shadow cutover.
+
+Foreground and ordinary manual catch-up select jobs only when their frozen
+normalization policy is currently `ENABLED`. On disable, pending V1 jobs derive
+`PAUSED_POLICY_DISABLED` from the policy event and are excluded before evidence
+collection or labeling; they do not consume retry attempts. An explicit audit
+command may terminalize selected paused jobs with an append-only state event.
+Re-enable resumes the remaining paused jobs from their prior durable state.
 
 Enable and disable actions append a typed
 `NORMALIZATION_POLICY_STATE_CHANGED` event containing the policy version,
@@ -527,8 +618,10 @@ policy, source head, and comparison hash appends nothing.
 Phase 2 is operationally complete when:
 
 1. Every normalized supported prediction is frozen with a scorable status and
-   reason. The denominator excludes absent explicit claims and unsupported
-   inputs that the normalizer records as non-scorable.
+   reason. The denominator excludes policy-abstained claims and unsupported
+   inputs recorded as non-scorable, but it never excludes an enabled family
+   missing from its emission manifest or marked `EMISSION_FAILED`; either
+   condition fails acceptance.
 2. Scorable decisions create stable evaluation jobs 100% of the time.
 3. Native live scorable jobs have complete source bindings 100% of the time.
 4. Fixture and replay shadow cohorts produce at least one end-to-end outcome
@@ -549,6 +642,9 @@ Phase 2 is operationally complete when:
 15. Shadow mode performs zero canonical writes, cutover records its source
     ledger head and policy version, and rollback preserves a fully rebuildable
     append-only history.
+16. A representative native-run cohort has a complete emission manifest for
+    every enabled Zenith prediction family, zero `EMISSION_FAILED` entries, and
+    at least one native Directional decision completing its headline outcome.
 
 Production efficacy remains a later evidence milestone. Phase 2 completion
 means trustworthy measurement, not favorable performance.
