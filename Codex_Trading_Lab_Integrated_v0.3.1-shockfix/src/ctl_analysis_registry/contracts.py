@@ -57,6 +57,16 @@ def validate_phase2_payload(event_type: str, payload: dict[str, Any]) -> list[st
     subtype = payload.get("decision_subtype")
     if subtype == "CONDITIONAL_DIRECTIONAL" and "activation" not in payload:
         errors.append("activation is required for CONDITIONAL_DIRECTIONAL")
+    if subtype == "CONDITIONAL_SETUP":
+        for field in (
+            "activation",
+            "setup_geometry",
+            "strictness",
+            "generation_id",
+            "geometry_provenance",
+        ):
+            if field not in payload:
+                errors.append(f"{field} is required for CONDITIONAL_SETUP")
     if subtype == "UNCONDITIONAL_DIRECTIONAL":
         if "reference_price" not in payload:
             errors.append("reference_price is required for UNCONDITIONAL_DIRECTIONAL")
