@@ -122,6 +122,16 @@ def _label(
     outcome["job_id"] = job["job_id"]
     outcome["semantic_opportunity_id"] = decision.get("semantic_opportunity_id")
     outcome["variant_id"] = decision.get("variant_id")
+    for key in (
+        "generation_id",
+        "strictness",
+        "setup_horizon",
+        "side",
+        "market_context",
+        "prediction_family_id",
+    ):
+        if key in decision:
+            outcome[key] = deepcopy(decision[key])
     outcome["integrity_tier"] = decision.get("quality", {}).get("integrity_tier", "PARTIAL")
     return outcome
 
