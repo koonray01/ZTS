@@ -161,6 +161,60 @@ def _update_job_state(
     )
 
 
+def _apply_activation_result(
+    connection: sqlite3.Connection,
+    payload: dict[str, Any],
+) -> None:
+    result = payload.get("activation_result")
+    if not isinstance(result, dict):
+        return
+    decision_id = str(payload["decision_id"])
+    rows = connection.execute(
+        "SELECT job_id, horizon, payload_json FROM evaluation_jobs WHERE decision_id=?",
+        (decision_id,),
+    ).fetchall()
+    for job_id, horizon, payload_json in rows:
+        job = json.loads(payload_json)
+        if result.get("state") == "ACTIVATED":
+            deadline = result.get("evaluation_deadlines", {}).get(horizon)
+            if not isinstance(deadline, str):
+                continue
+            job.update(
+                {
+                    "state": "PENDING",
+                    "due_at": deadline,
+                    "evaluation_start": result.get("evaluation_start"),
+                    "evaluation_deadline": deadline,
+                    "activation_id": result.get("activation_id"),
+                }
+            )
+            state, due_at, terminal_reason = "PENDING", deadline, None
+        elif result.get("state") == "EXPIRED_UNTRIGGERED":
+            job.update(
+                {
+                    "state": "EXPIRED_UNTRIGGERED",
+                    "terminal_reason": result.get("terminal_reason"),
+                }
+            )
+            state = "EXPIRED_UNTRIGGERED"
+            due_at = job["due_at"]
+            terminal_reason = result.get("terminal_reason")
+        else:
+            continue
+        connection.execute(
+            """UPDATE evaluation_jobs
+            SET state=?, due_at=?, terminal_reason=?, payload_json=?
+            WHERE job_id=?""",
+            (
+                state,
+                due_at,
+                terminal_reason,
+                json.dumps(job, ensure_ascii=False, sort_keys=True),
+                job_id,
+            ),
+        )
+
+
 def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) -> None:
     payload = event["payload"]
     event_type = event["event_type"]
@@ -216,6 +270,8 @@ def _insert_projection(connection: sqlite3.Connection, event: dict[str, Any]) ->
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
             ),
         )
+    elif event_type == "DECISION_ACTIVATED":
+        _apply_activation_result(connection, payload)
     elif event_type == "FOLLOWUP_EVIDENCE_RECORDED":
         connection.execute(
             """INSERT INTO followup_evidence
